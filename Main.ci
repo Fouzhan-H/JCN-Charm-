@@ -1,0 +1,23 @@
+mainmodule Main{
+
+ extern module JointContourNet;
+ extern module BoundSlabs; 
+
+ readonly int XDim; 
+ readonly int YDim; 
+ readonly int ZDim; 
+ readonly int RngDim; 
+ readonly int Xdiv; 
+ readonly int Ydiv; 
+ readonly int Zdiv; 
+ readonly int sws[10];
+ readonly int bss[10];
+ readonly CkGroupID mCastGrpId; 
+ readonly CProxy_BoundSlabs BSArray; 
+
+  mainchare Main{
+    entry Main(CkArgMsg* msg); 
+    entry void Done(); 
+  }
+
+}

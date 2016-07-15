@@ -1,0 +1,38 @@
+module JointContourNet {
+
+  extern module BoundSlabs; 
+
+  message JCNGrMsg{
+    double vexs [] ; 
+    int edgs [];
+  };
+
+
+  array [3D] JointContourNet {
+    entry JointContourNet();  
+    entry void Start(CkCallback & cb);
+    entry void RunMergeStep(); 
+    
+    entry void Merger(int n){ 
+       when RecvJCN[n](JCNGrMsg * adj_gr), 
+            RecvBSlabSet1(CkReductionMsg * br_set1), 
+            RecvBSlabSet2(CkReductionMsg * br_set2)
+            serial{
+              //TODO CkPrintf("Merger %i \n", n); 
+              //MergeJCNs processes the Reduction messages and merge two adjacent JCNs(local and received by RecJCN)
+              MergeJCNs(adj_gr, br_set1, br_set2); 
+              // send `Update Slab ID` message to BSArray section, 
+              // TODO, may  have to be called from  MergeJCNs function
+              UpdateBorders();
+              NextMergerStep();
+            } 
+    }   
+
+
+    entry void RecvJCN(JCNGrMsg * gr); 
+    entry void RecvBSlabSet1(CkReductionMsg * msg);
+    entry void RecvBSlabSet2(CkReductionMsg * msg); 
+
+  };
+
+}

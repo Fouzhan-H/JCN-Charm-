@@ -1,0 +1,41 @@
+module BoundSlabs{
+
+  message BSlabsMsg{
+    double cntrs []; 
+    long long ids []; 
+  };
+
+  message UpdIDsMsg{
+    int ids []; 
+  };
+
+  message GetBSlabsMsg;
+
+  array [3D] BoundSlabs{
+    entry BoundSlabs(int M_geom);
+    entry void Populate(int st[M_geom], int sz[M_geom], int M_geom, CkCallback & cb);
+
+    entry void BSIterate(){
+      for (iter = 1 ; iter < max_iter; iter++){
+        if (expectGetBound()){
+          when GetBoundSlabs[iter](GetBSlabsMsg * gmsg)
+            serial { 
+              SndBSlabs(gmsg);}
+        }
+        when UpdateSlabIDs[iter](UpdIDsMsg * umsg)
+          serial{
+//              CkPrintf("BS.ci 1 (%u, %u, %u)", thisIndex.x, thisIndex.y, thisIndex.z);  
+              UpdSlabIDs(umsg);} 
+      }
+      if (expectGetBound()){
+        when GetBoundSlabs[iter](GetBSlabsMsg * gmsg)
+          serial { 
+            SndBSlabs(gmsg);}
+      }
+    }
+
+    entry void GetBoundSlabs(GetBSlabsMsg * msg);
+    entry void UpdateSlabIDs(UpdIDsMsg * msg);
+  };
+
+}
