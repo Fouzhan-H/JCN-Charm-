@@ -4,7 +4,7 @@ module JointContourNet {
 
   message JCNGrMsg{
     double vexs [] ; 
-    int edgs [];
+    long long edgs [];
   };
 
 

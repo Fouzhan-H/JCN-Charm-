@@ -1,5 +1,12 @@
 module BoundSlabs{
 
+  message BSPopulateMsg {
+    int st [];
+    int sz []; 
+    double facetCntrs []; 
+    long long slabIDs [];
+  };
+ 
   message BSlabsMsg{
     double cntrs []; 
     long long ids []; 
@@ -13,7 +20,7 @@ module BoundSlabs{
 
   array [3D] BoundSlabs{
     entry BoundSlabs(int M_geom);
-    entry void Populate(int st[M_geom], int sz[M_geom], int M_geom, CkCallback & cb);
+    entry void Populate(BSPopulateMsg * msg);
 
     entry void BSIterate(){
       for (iter = 1 ; iter < max_iter; iter++){

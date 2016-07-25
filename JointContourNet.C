@@ -1,6 +1,8 @@
 #include "JointContourNet.decl.h"
 #include "JointContourNet.h"
 
+#include "RectilinearGridData.h"
+#include "CompJointContourNet.h"
 
 JointContourNet :: JointContourNet(){
   fin_dim = (Ydiv == 1 && Zdiv == 1) ? true: false; 
@@ -26,19 +28,34 @@ void JointContourNet::Start(CkCallback & cb){
   int st[3] = {st_x, st_y, st_z};
   int sz[3] = {dim_x, dim_y, dim_z}; 
 
-  //TODO: create RecGrid Pointer 
-  //TODO: call ComputeJCN 
+  int gz[3] = {XDim, YDim, ZDim};
 
-  ComputeJCN(); 
-
-  //TODO Populate the coressponding BoundSlab Array element   
+  int M_geom = 3; //TODO 
+  RectilinearGridData dset (M_geom, st, sz, gz , Range_Dim , fns); //create RecGrid  
+  //TODO: call ComputeJCN() 
+  long long slabNr, bndSlabNr; 
+  CompJointContourNet cmpJCN (&dset, Range_Dim, bss, sws, dim_x * dim_y * dim_z); //TODO
+  cmpJCN.compJCN(bndSlabNr, slabNr); 
+ 
+  slabs.resize(slabNr, std::vector<double> (Range_Dim));
+  //create populate message 
   CkCallback mrg_cb(CkIndex_JointContourNet::RunMergeStep()
                    , CkArrayIndex3D(thisIndex.x, thisIndex.y, thisIndex.z), thisProxy);
-//TODO  BoundSlabs * bslocal = BSArray(thisIndex.x, thisIndex.y, thisIndex.z).ckLocal();
-//  if (bslocal == NULL)
-     BSArray(thisIndex.x, thisIndex.y, thisIndex.z).Populate(st, sz, 3, mrg_cb);
-//  else  
-//    bslocal->Populate( st,  sz , 3, mrg_cb);
+  BSPopulateMsg * msg = new (M_geom, M_geom, bndSlabNr*M_geom, bndSlabNr ) BSPopulateMsg(mrg_cb, slabNr, bndSlabNr);
+  for (int i = 0; i < M_geom; i++){
+     msg -> st [i] = st[i]; 
+     msg -> sz [i] = sz[i]; 
+  }
+  cmpJCN.extractJCN(slabs, edges, msg->facetCntrs, msg->slabIDs); 
+
+  //TODO Populate the coressponding BoundSlab Array element   
+  BoundSlabs * bslocal = BSArray(thisIndex.x, thisIndex.y, thisIndex.z).ckLocal();
+ if (bslocal == NULL)
+     BSArray(thisIndex.x, thisIndex.y, thisIndex.z).Populate(msg);
+  else  
+    bslocal->Populate(msg);
+  
+  CkPrintf("JArray (%i, %i, %i):  file names %s, %s\n", thisIndex.x, thisIndex.y, thisIndex.z, fns[0], fns[1]);
 
 }  
 
@@ -114,10 +131,19 @@ void JointContourNet :: RunMergeStep(){
     thisProxy(thisIndex.x, thisIndex.y, thisIndex.z).Merger(itr_idx);  
   }else {
      if (lvl_id == (k >> 1)){        
-       // call RecvJCN
-       JCNGrMsg * gr  = new JCNGrMsg();   
-       CkSetRefNum(gr, itr_idx);
-       // TODO: convert local JCN to a JCNGrMsg/ Initialize gr 
+       // Convert local JCN to a JCNGrMsg/ Initialize gr 
+       int slabsSz = Range_Dim * slabs.size();
+       int edgesSz = 2 * edges.size(); 
+       JCNGrMsg * gr  = new (slabsSz, edgesSz ) JCNGrMsg();   
+       std::copy(slabs.data()->data(), (slabs.data())->data() + slabsSz, gr->vexs);
+       int edge_it = 0; 
+       for (std::set<std::pair<long long, long long>>::iterator it = edges.begin(); it != edges.end(); ++it, edge_it+=2 ){
+          gr->edgs [edge_it] = std::get<0>(*it); 
+          gr->edgs [edge_it +1] = std::get<1>(*it); 
+       }
+       gr -> slabCnt = slabs.size();
+       gr -> edgCnt = edges.size();
+       CkSetRefNum(gr, itr_idx);           //set the message tag (reduction Level)
        switch (red_dim){
          case 1: thisProxy( thisIndex.x - (k >> 1) , thisIndex.y, thisIndex.z).RecvJCN(gr); break; 
          case 2: thisProxy(0, thisIndex.y - (k>>1), thisIndex.z).RecvJCN(gr); break; 

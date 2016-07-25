@@ -1,14 +1,17 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <pup_stl.h>
+
 #define MAX_RANGE_DIM 10
 
 int XDim;
 int YDim;
 int ZDim; 
-int RngDim; 
-int sws [MAX_RANGE_DIM];
-int bss [MAX_RANGE_DIM];
+int Range_Dim; 
+double sws [MAX_RANGE_DIM];
+double bss [MAX_RANGE_DIM];
+char fns [MAX_RANGE_DIM][100];
 int Xdiv;
 int Ydiv;
 int Zdiv;

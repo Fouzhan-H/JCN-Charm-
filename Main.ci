@@ -6,12 +6,13 @@ mainmodule Main{
  readonly int XDim; 
  readonly int YDim; 
  readonly int ZDim; 
- readonly int RngDim; 
+ readonly int Range_Dim; 
  readonly int Xdiv; 
  readonly int Ydiv; 
  readonly int Zdiv; 
- readonly int sws[10];
- readonly int bss[10];
+ readonly double sws[10];
+ readonly double bss[10];
+ readonly char fns [10][100]; 
  readonly CkGroupID mCastGrpId; 
  readonly CProxy_BoundSlabs BSArray; 
 

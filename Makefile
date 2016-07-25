@@ -7,21 +7,32 @@ BINARY=JCN
 
 all: $(BINARY)
 
-JCN_Proj: BSlab.o JCN.o Main.o 
-	$(CHARMC) -o $@ Main.o JCN.o BSlab.o  -module CkMulticast -tracemode projections $(OPTS)
+JCN_Proj: BSlab.o JCN.o Main.o  
+	$(CHARMC) -o $@ Main.o JCN.o BSlab.o RectGData.o CompJCN.o PtopeGeom.o PyramidTree.o -module CkMulticast -tracemode projections $(OPTS)
 
-$(BINARY): BSlab.o JCN.o Main.o 
-	$(CHARMC) -o $@ Main.o JCN.o BSlab.o  -module CkMulticast  $(OPTS)
+$(BINARY): RectGData.o BSlab.o JCN.o Main.o 
+	$(CHARMC) -o $@ Main.o JCN.o BSlab.o RectGData.o CompJCN.o PtopeGeom.o PyramidTree.o -module CkMulticast $(OPTS)
 
 Main.o: Main.C Main.h Main.decl.h Main.def.h
 	$(CHARMC) -o $@ Main.C 
 
-JCN.o: JointContourNet.C JointContourNet.h JCN.decl.h JCN.def.h
-	$(CHARMC) -o $@ JointContourNet.C
+JCN.o: RectGData.o CompJCN.o JointContourNet.C JointContourNet.h JCN.decl.h JCN.def.h  
+	$(CHARMC) -o $@ JointContourNet.C 
 
 BSlab.o: BoundSlabs.C BoundSlabs.h BoundSlabs.decl.h BoundSlabs.def.h
 	$(CHARMC) -o $@ BoundSlabs.C
 
+RectGData.o:  RectilinearGridData.C RectilinearGridData.h CommonDef.h
+	$(CHARMC) -o $@ RectilinearGridData.C 
+
+CompJCN.o: PtopeGeom.o PyramidTree.o CompJointContourNet.C CompJointContourNet.h 
+	$(CHARMC) -o $@ CompJointContourNet.C
+
+PtopeGeom.o: PolytopeGeometry.C PolytopeGeometry.h 
+	$(CHARMC) -o $@ PolytopeGeometry.C
+
+PyramidTree.o: PyramidTree.C PyramidTree.h CommonDef.h
+	$(CHARMC) -o $@ PyramidTree.C
 
 %.stamp:% 
 	$(CHARMC) $< 

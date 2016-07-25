@@ -37,7 +37,7 @@ void Main :: Done(){
 //   * Slab bases
 //   * division across dimensions 
 void Main :: GetParams (CkArgMsg * m){
-  bool dimp = false, divp = false, rngp = false, swp = false, bsp = false; 
+  bool dimp = false, divp = false, rngp = false, swp = false, bsp = false, fnp=false; 
 
   for (int i = 1 ; i < m -> argc; ){
      if (strcmp("-d", m->argv[i]) == 0){ //Read and set dataset dimension
@@ -49,7 +49,7 @@ void Main :: GetParams (CkArgMsg * m){
      }
 
      if (strcmp("-rd", m->argv[i]) == 0){ // Read and set the range domain dimension
-       RngDim = atoi(m -> argv[++i]);
+       Range_Dim = atoi(m -> argv[++i]);
        i++; rngp = true;   
        continue; 
      }
@@ -59,8 +59,8 @@ void Main :: GetParams (CkArgMsg * m){
           CkPrintf("Range dimension (-rd) is expected before slab width values\n");
           CkExit();
        }
-       for (int j = 0; j < RngDim; j++){  
-         sws[j] = atoi(m->argv[++i]); 
+       for (int j = 0; j < Range_Dim; j++){  
+         sws[j] = atof(m->argv[++i]); 
        } 
        i++; swp = true; 
        continue; 
@@ -71,12 +71,24 @@ void Main :: GetParams (CkArgMsg * m){
           CkPrintf("Range dimension (-rd) is expected before slab bases\n");
           CkExit();
        }
-       for (int j = 0 ; j < RngDim; j++)
-         bss[j] = atoi(m->argv[++i]);
+       for (int j = 0 ; j < Range_Dim; j++)
+         bss[j] = atof(m->argv[++i]);
        i++; bsp = true; 
        continue; 
      } 
      
+     if (strcmp("-f", m->argv[i]) == 0 ){
+       if (!rngp) {
+          CkPrintf("Range dimension (-rd) is expected before list of input file names\n");
+          CkExit();
+       }
+       for (int j = 0 ; j < Range_Dim; j++)
+         strcpy(fns[j],m->argv[++i]);
+       i++; fnp = true; 
+       continue; 
+     
+     }
+ 
      if (strcmp("-div", m->argv[i]) == 0){ // Read and set number of division for each domain dimension  
        Xdiv = atoi(m->argv[++i]);
        Ydiv = atoi(m->argv[++i]);
@@ -91,12 +103,13 @@ void Main :: GetParams (CkArgMsg * m){
   if (!dimp) CkPrintf("Dataset dimension (-d) is expected \n");
   if (!rngp) CkPrintf("Range dimension (-rd) is expected \n");
   if (!swp) CkPrintf("Slab widths (-sw) are expected \n");
+  if (!fnp) CkPrintf("Input file names (dataset) is expected\n"); 
  
-  if (!dimp || !rngp || !swp ) CkExit(); 
+  if (!dimp || !rngp || !swp || !fnp) CkExit(); 
 
   if (!bsp){ // Set default value for slab bases to zero
     CkPrintf ("Warning: Slabs are computed with base 0 \n"); 
-    for (int j =0; j < RngDim; j++)
+    for (int j =0; j < Range_Dim; j++)
       bss[j] = 0; 
   }
 

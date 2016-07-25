@@ -9,15 +9,20 @@ extern int ZDim;
 extern int Xdiv;
 extern int Ydiv;
 extern int Zdiv;
+extern char fns [][100]; 
+extern int Range_Dim; 
+extern double sws [];
+extern double bss [];
 extern CProxy_BoundSlabs BSArray; 
 extern CkGroupID mCastGrpId;
+
 
 class JCNGrMsg : public CMessage_JCNGrMsg{
 public:
   double * vexs;  // 2D array of size vexCnt*N (range dimension)
-  int * edgs; //TODO IDType // 2D array of size 2*edgCnt
+  long long * edgs; //TODO IDType // 2D array of size 2*edgCnt
 //  std::vector<std::vector<double>> slabval; 
-  int vexCnt; //TODO IDType 
+  int slabCnt; //TODO IDType 
   int edgCnt; //TODO IDtype
 };
 
@@ -44,9 +49,12 @@ private:
   int red_idx;
   bool fin_dim; 
   CkCallback * finish_cb; 
-  // TODO: local copy of a jcn graph 
-  std::vector <std::vector<double>> slabVals; 
-  std::vector <std::pair<long long, long long>> edges; 
+  // local copy of a jcn graph includes 
+  //   * a list of the center coordination (in the domain) of all slabs, and
+  //   * a set of slab id pairs representing adjacent slabs
+  std::vector <std::vector<double>> slabs; 
+  std::set <std::pair<long long, long long>> edges; 
+
 };
 
 #endif 
