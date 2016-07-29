@@ -38,7 +38,7 @@ public:
 private:
   JointContourNet_SDAG_CODE
   void ComputeJCN(/* Needs to recive a wrapper over data files or and index*/);
-  void MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr, CkReductionMsg * sndBr ); 
+  void MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr); 
   void UnfoldRecvBSlabs(CkReductionMsg * msg); 
   void UpdateBorders(); 
   void NextMergerStep();

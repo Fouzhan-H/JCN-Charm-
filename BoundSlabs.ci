@@ -7,41 +7,51 @@ module BoundSlabs{
     long long slabIDs [];
   };
  
-  message BSlabsMsg{
+  message BndFacesMsg{
     double cntrs []; 
     long long ids []; 
   };
 
-  message UpdIDsMsg{
-    int ids []; 
+  message AdjFacesMsg{
+    long long fst_ids []; 
+    long long snd_ids[]; 
   };
 
-  message GetBSlabsMsg;
+  message UpdIDsMsg{
+    long long ids []; 
+  };
+
+  message TargetBndMsg; 
+  message SndBndMsg;
 
   array [3D] BoundSlabs{
     entry BoundSlabs(int M_geom);
     entry void Populate(BSPopulateMsg * msg);
-
+  
     entry void BSIterate(){
       for (iter = 1 ; iter < max_iter; iter++){
-        if (expectGetBound()){
-          when GetBoundSlabs[iter](GetBSlabsMsg * gmsg)
-            serial { 
-              SndBSlabs(gmsg);}
+        if (ExpectGetBound()){
+          case {
+            when SndBndFaces[iter](TargetBndMsg * msg) serial {SndSlabFaces(msg);}
+            when GetAdjacentSlabs[iter](SndBndMsg * sb_msg),
+                 RecvSlabFaces[iter](BndFacesMsg * fs_msg) serial { FindAdjSlabs(sb_msg, fs_msg);}          
+          }
         }
         when UpdateSlabIDs[iter](UpdIDsMsg * umsg)
-          serial{
-//              CkPrintf("BS.ci 1 (%u, %u, %u)", thisIndex.x, thisIndex.y, thisIndex.z);  
-              UpdSlabIDs(umsg);} 
+              serial{UpdSlabIDs(umsg); } 
+      } // end of for iteration 
+      if (ExpectGetBound()){
+        case {
+          when SndBndFaces[iter](TargetBndMsg * msg) serial {SndSlabFaces(msg);}
+          when GetAdjacentSlabs[iter](SndBndMsg * sb_msg),
+               RecvSlabFaces[iter](BndFacesMsg * fs_msg) serial{ FindAdjSlabs(sb_msg, fs_msg);}          
+        }
       }
-      if (expectGetBound()){
-        when GetBoundSlabs[iter](GetBSlabsMsg * gmsg)
-          serial { 
-            SndBSlabs(gmsg);}
-      }
-    }
+    };
 
-    entry void GetBoundSlabs(GetBSlabsMsg * msg);
+    entry void SndBndFaces(TargetBndMsg * sb_msg);
+    entry void RecvSlabFaces(BndFacesMsg * fs_msg); 
+    entry void GetAdjacentSlabs(SndBndMsg * sb_msg); 
     entry void UpdateSlabIDs(UpdIDsMsg * msg);
   };
 

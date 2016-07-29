@@ -33,7 +33,7 @@ void JointContourNet::Start(CkCallback & cb){
   int M_geom = 3; //TODO 
   RectilinearGridData dset (M_geom, st, sz, gz , Range_Dim , fns); //create RecGrid  
   //TODO: call ComputeJCN() 
-  long long slabNr, bndSlabNr; 
+  long long slabNr, bndSlabNr;  
   CompJointContourNet cmpJCN (&dset, Range_Dim, bss, sws, dim_x * dim_y * dim_z); //TODO
   cmpJCN.compJCN(bndSlabNr, slabNr); 
  
@@ -116,18 +116,17 @@ void JointContourNet :: RunMergeStep(){
     CkMulticastMgr * mCastGrp = CProxy_CkMulticastMgr(mCastGrpId).ckLocalBranch();
     uplain_proxy.ckSectionDelegate(mCastGrp);
     lplain_proxy.ckSectionDelegate(mCastGrp);
-    // Create `GetBSlabsMsg' Messages 
+    // Create `SndBndMsg' Messages 
     CkArrayIndex3D charIdx(thisIndex.x, thisIndex.y, thisIndex.z);
     CkCallback up_cb(CkIndex_JointContourNet::RecvBSlabSet1(NULL), charIdx, thisProxy);
-    CkCallback lp_cb(CkIndex_JointContourNet::RecvBSlabSet2(NULL), charIdx, thisProxy);
-    GetBSlabsMsg * up_msg = new GetBSlabsMsg(red_dim, true, up_cb);
+//    CkCallback lp_cb(CkIndex_JointContourNet::RecvBSlabSet2(NULL), charIdx, thisProxy);
+    SndBndMsg * up_msg = new SndBndMsg(red_dim, true, up_cb);
     CkSetRefNum(up_msg, itr_idx);
-    GetBSlabsMsg * lp_msg = new GetBSlabsMsg(red_dim, false, lp_cb);
+    TargetBndMsg * lp_msg = new TargetBndMsg(red_dim, false);
     CkSetRefNum(lp_msg, itr_idx);
     // Multicast/Reduction on both sections 
-    uplain_proxy.GetBoundSlabs(up_msg);
-    lplain_proxy.GetBoundSlabs(lp_msg);
-
+    uplain_proxy.GetAdjacentSlabs(up_msg);
+    lplain_proxy.SndBndFaces(lp_msg);
     thisProxy(thisIndex.x, thisIndex.y, thisIndex.z).Merger(itr_idx);  
   }else {
      if (lvl_id == (k >> 1)){        
@@ -244,11 +243,10 @@ void JointContourNet :: UpdateBorders(){
 
 void JointContourNet :: ComputeJCN(){}
  
-void JointContourNet :: MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr, CkReductionMsg * sndBr ){
+void JointContourNet :: MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr ){
   // TODO: computation
   delete sndGr; 
   delete fstBr;
-  delete sndBr;
 
 }
 
@@ -258,7 +256,7 @@ void JointContourNet :: UnfoldRecvBSlabs(CkReductionMsg * msg){
   // Use CkReduction:setElement to recover each border 
   CkReduction::setElement * set_itr = (CkReduction::setElement *) msg->getData();
   while(set_itr != NULL){
-    BSlabsMsg * elem = (BSlabsMsg *) &set_itr -> data; 
+    AdjFacesMsg * elem = (AdjFacesMsg *) &set_itr -> data; 
     // TODO : add the element to a local data structure 
     set_itr = set_itr -> next();
   }

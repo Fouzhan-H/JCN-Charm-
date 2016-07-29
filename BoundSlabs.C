@@ -8,9 +8,9 @@
 BoundSlabs :: BoundSlabs(int M_geom) 
   : M_geom (M_geom)
   , ranges(std::vector <std::array<double, 2>>(M_geom))
-  , plains (std::vector<BSlabsMsg *>(2*M_geom)){
-  //TODO: initializae iter and max_iter
-  iter = 0; 
+  , plains (std::vector<BndFacesMsg *>(2*M_geom)){
+  //Initializae iter and max_iter, max_iter is equal to the height of the reduction tree
+  iter = 1; 
   x_itr = y_itr = z_itr = 0; 
   bool fin_dim = (Ydiv == 1 && Zdiv == 1)? true : false;
   int kk = 1; 
@@ -37,9 +37,9 @@ BoundSlabs :: BoundSlabs(int M_geom)
       break; 
   }
   max_iter = x_itr + y_itr + z_itr; 
-    
-
+   
 }
+
 BoundSlabs :: BoundSlabs(CkMigrateMessage * msg){}
 
 BoundSlabs::~BoundSlabs(){
@@ -55,7 +55,7 @@ void BoundSlabs :: Populate(BSPopulateMsg * msg){
     ranges[i][0] = msg -> st[i];
     ranges[i][1] = msg -> st[i] + msg -> sz[i] -1; 
   }
-  
+
   // Iterate over all facets 
   //   * determine which border they sit on
   //   * Count the number of faces on each border
@@ -73,7 +73,7 @@ void BoundSlabs :: Populate(BSPopulateMsg * msg){
   }
 
   for (int i = 0; i < 2*M_geom; i++)   // messages for each border
-    plains[i] = new (cntr[i]*M_geom, cntr[i]) BSlabsMsg(cntr[i]);
+    plains[i] = new (cntr[i]*M_geom, cntr[i]) BndFacesMsg(cntr[i]);
   
   short n; 
   long long m;
@@ -101,23 +101,44 @@ void BoundSlabs :: Populate(BSPopulateMsg * msg){
 }
 
 
-void BoundSlabs :: SndBSlabs(GetBSlabsMsg * msg){
-  CkSectionInfo cookie; 
-  CkGetSectionInfo(cookie, msg);
+void BoundSlabs :: SndSlabFaces(TargetBndMsg * msg){
   short b_idx = 2*(msg ->dim-1) + (msg->topPlain ? 1 : 0); 
-  BSlabsMsg * bs_msg = plains[b_idx];
+  BndFacesMsg * fs_msg = plains[b_idx];
   // Update slab IDs
   long long tmp; 
-  for (long long i = 0; i < bs_msg -> no ; i++){
-    tmp = bs_msg -> ids[i]; 
-    bs_msg -> ids[i] = slab_ids[tmp];    
+  for (long long i = 0; i < fs_msg -> no ; i++){
+    tmp = fs_msg -> ids[i]; 
+    fs_msg -> ids[i] = slab_ids[tmp];    
   }
-  CkMulticastMgr * mCastGrp = CProxy_CkMulticastMgr(mCastGrpId).ckLocalBranch();
-  mCastGrp -> contribute(sizeof(*bs_msg), bs_msg , CkReduction::set, cookie, msg->cb); 
-
+ 
+  CkSetRefNum(fs_msg, iter);
+  switch (msg->dim){
+    case 1: thisProxy(thisIndex.x-1, thisIndex.y, thisIndex.z).RecvSlabFaces(fs_msg); break;
+    case 2: thisProxy(thisIndex.x, thisIndex.y-1, thisIndex.z).RecvSlabFaces(fs_msg); break;
+    case 3: thisProxy(thisIndex.x, thisIndex.y, thisIndex.z-1).RecvSlabFaces(fs_msg); break;
+  }
+ 
   delete msg;  
   plains[b_idx] = NULL;
 }
+
+void BoundSlabs::FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * adjfs_msg){
+  short b_idx = 2*(sb_msg ->dim-1) + (sb_msg->topPlain ? 1 : 0); 
+  BndFacesMsg * fs_msg = plains[b_idx];
+  AdjFacesMsg * adj_msg = new (fs_msg->no, adjfs_msg -> no) AdjFacesMsg();
+  //TODO: Find adjacent slabs , iterate over fs_msg and adjfs_msg
+  
+  CkSectionInfo cookie; 
+  CkGetSectionInfo(cookie, sb_msg);
+  CkMulticastMgr * mCastGrp = CProxy_CkMulticastMgr(mCastGrpId).ckLocalBranch(); 
+  mCastGrp -> contribute(sizeof(*adj_msg), adj_msg , CkReduction::set, cookie, sb_msg->cb); 
+  
+  delete sb_msg; 
+  delete adjfs_msg;
+  delete fs_msg;   // TODO :check  correctness
+  plains [b_idx] = NULL;  
+}
+
 
 void BoundSlabs :: UpdSlabIDs(UpdIDsMsg * msg){
   CkSectionInfo upd_cookie;
@@ -133,10 +154,9 @@ void BoundSlabs :: UpdSlabIDs(UpdIDsMsg * msg){
   }
   */
   delete msg; 
-
 } 
 
-bool BoundSlabs :: expectGetBound(){
+bool BoundSlabs :: ExpectGetBound(){
   int k, half_k, tmp; 
   
   if (iter <= x_itr){
@@ -151,9 +171,10 @@ bool BoundSlabs :: expectGetBound(){
   }
   
   half_k = k >> 1; 
-  if (tmp == half_k || tmp == half_k -1)
-    return true;
-  return false; 
+  if (tmp == half_k || tmp == half_k -1){ 
+     return true;
+  }
+  return false;  
 }
 
 short BoundSlabs::FindBorder(double * point){
