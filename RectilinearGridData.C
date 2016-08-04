@@ -172,19 +172,27 @@ IdType RectilinearGridData::GetCellComponent(IdType c, int j , double * point){
 void RectilinearGridData::Simplicate3D(short cs ){
   if (M_geom == 2){ 
      switch (cs){
-       case 0:  cell4 = {0, 1, 3, 0}; break; 
-       case 1:  cell4 = {0, 2, 3, 0}; break; 
+       case 0: cell4[0] = 0; cell4[1] = 1; cell4[2]= 3; cell4[3]=0;  // cell4 = {0, 1, 3, 0};
+               break; 
+       case 1: cell4[0] = 0; cell4[1] = 2; cell4[2]= 3; cell4[3]=0;  // cell4 = {0, 2, 3, 0};  
+               break;
      }
      return; 
   }
    
   switch (cs){
-    case 0: cell4 = {2, 3, 0, 7}; break;
-    case 1: cell4 = {2, 0, 6, 7}; break; 
-    case 2: cell4 = {3, 0, 1, 7}; break; 
-    case 3: cell4 = {0, 1, 7, 5}; break; 
-    case 4: cell4 = {0, 6, 7, 4}; break; 
-    case 5: cell4 = {0, 7, 4, 5}; break; 
+    case 0: cell4[0] = 2; cell4[1] = 3; cell4[2]= 0; cell4[3]=7;    // cell4 = {2, 3, 0, 7};
+            break;
+    case 1: cell4[0] = 2; cell4[1] = 0; cell4[2]= 6; cell4[3]=7;    // cell4 = {2, 0, 6, 7};
+            break; 
+    case 2: cell4[0] = 3; cell4[1] = 0; cell4[2]= 1; cell4[3]=7;    // cell4 = {3, 0, 1, 7};
+            break; 
+    case 3: cell4[0] = 0; cell4[1] = 1; cell4[2]= 7; cell4[3]=5;    // cell4 = {0, 1, 7, 5};
+            break; 
+    case 4: cell4[0] = 0; cell4[1] = 6; cell4[2]= 7; cell4[3]=4;    // cell4 = {0, 6, 7, 4};
+            break; 
+    case 5: cell4[0] = 0; cell4[1] = 7; cell4[2]= 4; cell4[3]=5;    // cell4 = {0, 7, 4, 5};
+            break; 
   }
   
 }

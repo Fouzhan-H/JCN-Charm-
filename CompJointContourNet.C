@@ -2,8 +2,8 @@
 
 #include "stdio.h"
 
-#include <limits>
-
+//#include <limits>
+#include <float.h>
 
 CompJointContourNet::CompJointContourNet(RectilinearGridData *dset, int n, double * bases, double* sws, IdType pointsNr)
   : fragsSlabIdx(0, std::vector<short>(n)) 
@@ -87,8 +87,10 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
     //compute the range bounds in each dimension, and 
     //create the corresponding point in the geometry processor. 
     for (int i =0; i < this->N; i++){
-        rngRange[2*i] = std::numeric_limits<double>::max(); 
-        rngRange[2*i+1]= std::numeric_limits<double>::lowest(); 
+        rngRange[2*i] = DBL_MAX; 
+        //rngRange[2*i] = std::numeric_limits<double>::max(); 
+        rngRange[2*i+1]= -DBL_MAX; 
+        //rngRange[2*i+1]= std::numeric_limits<double>::lowest(); 
     }
     
     double fv;
