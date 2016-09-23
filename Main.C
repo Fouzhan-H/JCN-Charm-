@@ -7,6 +7,8 @@
 #include <ckmulticast.h>
 
 Main :: Main(CkArgMsg * msg){
+  startTime = CkWallTimer(); 
+ 
   GetParams(msg); // Read Program Arguments: 
   
   mCastGrpId = CProxy_CkMulticastMgr::ckNew();
@@ -27,7 +29,8 @@ Main :: Main(CkArgMsg * msg){
 }
 
 void Main :: Done(){
-  CkPrintf("all done.\n");
+  double endTime = CkWallTimer();
+  CkPrintf("all done in %f seconds.\n", endTime - startTime);
   CkExit();
 }
 

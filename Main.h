@@ -26,6 +26,7 @@ public:
   void Done(); // TODO: receive the final JCN
 private:
   void GetParams (CkArgMsg * msg); 
+  double startTime; 
 };
 
 #endif
