@@ -7,7 +7,7 @@
 #include <math.h>
 
 // Tolerance used when comparing components of points.
-#define EPSILON 0.0000001
+#define COM_EPSILON 1.0e-12
 
 // ------------------------------------------------------------------
 
@@ -17,7 +17,7 @@
 // approximately equal to, or greater than, base.
 int Compare(double t, double base)
 {
-  if (fabs(t - base) < EPSILON)
+  if (fabs(t - base) < COM_EPSILON)
     return 0;
   if (t < base)
     return -1;
@@ -25,6 +25,32 @@ int Compare(double t, double base)
 }
 
 // ------------------------------------------------------------------
+
+void PolytopeGeometry::PrintActivePtope(IdType id){
+  struct _Ptope * entry = this  -> Ptope + id;
+  
+  std:: cout << "Ptope: " << id  << " of dimension " << entry -> dim << ",  Facets are: ";
+  IdType * fptr = Facet + (entry -> start);
+  double coord_dim [3] ;
+  double * rc; 
+  switch (entry -> dim){
+    case (1) : for (int i = 0; i < entry -> size; i++){
+                 GetActiveDomCoord(fptr[i], coord_dim); 
+                 rc = this->ActiveScalars[(-fptr[i]-1)].data() ;   
+                 std::cout << "point " << fptr[i] << " ("  << coord_dim[0] << " " << coord_dim[1] << " " << coord_dim[2] << ")--(" << rc[0] << " " << rc[1] << ") " ; 
+               }
+               std :: cout << std::endl;
+               break;
+    default: for (int i = 0; i < entry -> size; i++)
+               std::cout << " " << fptr[i]; 
+             std::cout << std::endl;
+  }
+  if (entry -> dim > 1){
+    fptr = Facet + (entry -> start);
+    for (int i = 0; i < entry -> size; i++)
+      PrintActivePtope(fptr[i]);
+  }
+}
 
 PolytopeGeometry::PolytopeGeometry(
   const short m_topo, 
@@ -64,7 +90,6 @@ PolytopeGeometry::PolytopeGeometry(
 
   // Counter for stored (inactive) polytopes.  
   this->NrStoredPtopes = 0;
-
 
   // Storage for facet center, and lookup.
   this->CenterLocator = std::unique_ptr<PyramidTree> (new PyramidTree); 
@@ -129,7 +154,8 @@ void PolytopeGeometry::ResetForNextCell(const double *domainBounds)
   this->NextPtope = 1;
   
   // Reset hash-table support.
-  for (int i = 1; i < PolytopeGeometry::TABSIZE; i++)
+  this -> SetSize[0] = 0;
+  for (int i = 0; i < PolytopeGeometry::TABSIZE; i++)
     {
     this->SetSize[i] = -1;
     }
@@ -190,15 +216,14 @@ void PolytopeGeometry::StoreActivePolytopes(IdType *ids, int nrPtopes)
 
       facet = this->Facet[entry->start + j];
       p = this->GetPtopeCenter(facet);
-
-      
       unseen = this->CenterLocator->InsertUniquePoint(p, pid);
-          
+
       if (unseen)
         {
         // First occurrence of this center, use component 0 
         // and initialize the second component to -1.
-        this->CenterFacets.push_back({ this->NrStoredPtopes+ i, -1});
+        std::array<IdType, 2> nc = { this->NrStoredPtopes+ i, -1};
+        this->CenterFacets.push_back(nc);
         }
       else
         {
@@ -340,6 +365,7 @@ IdType PolytopeGeometry::AddPtope(IdType *pt, int d, int sz)
     temp[i] = pt[i];
     }
   std::sort(temp, temp+sz);
+ 
 
   // Hash the key.  Hash function to use is determined by number of indices
   // in the polytope, to try and get a wider spread of values over the common
@@ -376,9 +402,9 @@ IdType PolytopeGeometry::AddPtope(IdType *pt, int d, int sz)
       // Copy polytope key into this slot.
       this->SetSize[h] = sz;
       for (int i = 0; i < sz; i++)
-        {
         this->PointSet[h][i] = temp[i];
-        }
+      for (int i = sz; i < SETSIZE; i++)
+        this->PointSet[h][i] = 0;
       // Initialize the polytope record.
       entry = this->Ptope + this->NextPtope;
       entry->start = this->NextFacet;
@@ -456,7 +482,6 @@ IdType PolytopeGeometry::AddPtope(IdType *pt, int d, int sz)
       if (h == PolytopeGeometry::TABSIZE) h = 0;
       }
     }
-
   // Guaranteed to have found or created the polytope in slot h.
   return this->Index[h];
 } // AddPtope
@@ -526,7 +551,6 @@ void PolytopeGeometry::Split(
   double ai;
 
   bool placed = false;    // has the ptope being fully processed?
- 
 
   entry = this->Ptope + ptid;
   
@@ -558,7 +582,6 @@ void PolytopeGeometry::Split(
   switch (entry->dim) {
 
     case 0: 
-
       // Rare: polytope is a single point.
       // Point either:
       // - lies on a plane
@@ -691,8 +714,7 @@ void PolytopeGeometry::SplitEdge(
       // Find parametric coordinate of edge/plane intersection,
       // and classify as below / on / above lowest endpoint.
       t = (thresholds[c] - ai) / (bi - ai);
-      t_comp = Compare(t, 0.0);
-
+      t_comp = Compare(thresholds[c], ai);  // Compare(t, 0.0);
       switch (t_comp) {
         case -1: 
           // edge starts at component value above that of the plane.
@@ -707,7 +729,7 @@ void PolytopeGeometry::SplitEdge(
         case  1: 
           // edge starts below plane.
           // consider intersection with right hand of edge.
-          t_comp = Compare(t, 1.0);             
+          t_comp = Compare(thresholds[c], bi);  // Compare(t, 1.0);             
           switch (t_comp) {
             case -1: 
               // Edge ends at component value above plane, so is cut.
@@ -874,8 +896,6 @@ void PolytopeGeometry::SplitPtope(
   IdType * rec_frags = new IdType [nFragNr]; 
   IdType * rec_ends = new IdType [nFragNr]; 
 
-
-
   // ids for the polytopes formed by fragments lying in cutting planes.
   IdType end_tope, end_prev;
   int nrParts;
@@ -893,7 +913,6 @@ void PolytopeGeometry::SplitPtope(
         rec_frags + f*(nrts + 1),
         rec_ends  + f*(nrts + 1));
     } // for each face
-  
 
   // Try to compute a new polytope formed by each cutting 
   // plane and by the residue (hence <= condition for loop 
@@ -928,6 +947,7 @@ void PolytopeGeometry::SplitPtope(
       rec_frags[(nrts + 1) * nrParts + i] = end_prev;  
       nrParts++;
       }
+
     // The end polytope from this plane will be the previous for the next plane.
     end_prev = end_tope;
     // Attempt to build a polytope fragment from the facet fragments and any 
@@ -935,7 +955,7 @@ void PolytopeGeometry::SplitPtope(
     this->RecCache[entry->fragments + i] = frags[i] 
         = this->Select(rec_frags, nrts+1, nrParts, i, entry->dim, entry->dim);
     }
-    
+
     delete rec_frags;
     delete rec_ends;
 
@@ -993,7 +1013,6 @@ IdType PolytopeGeometry::Select(
   // as negative values their dimension is implicit, saving on inner-loop 
   // tests.
 
-
   next = 0;
   if (d > 1)
     { 
@@ -1009,8 +1028,9 @@ IdType PolytopeGeometry::Select(
           }
         }
       } // for each candidate point
+
     if (next > d) 
-      { 
+      {
       // create a new ptope of one dimension up from its component faces.
       return this->AddPtope(temp, d, next); 
       }
@@ -1077,7 +1097,7 @@ double *PolytopeGeometry::GetPtopeCenter(IdType pid)
   // Changed to multi-dimensional point
   entry->center = this->DblCacheSize;
   this->DblCacheSize += this->M_geom;
-    
+
   // No cached center, so compute cache.
   // Initialize cache entry to zeroes.
   for (int i = 0; i < this->M_geom; i++)

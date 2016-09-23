@@ -42,7 +42,7 @@ void PyramidTree::Initialize(int col, const double *bounds)
      {
       this->MinDim[i] = bounds[2*i];
       this->MaxDim[i] = bounds[2*i+1];
-      if (MaxDim[i] <= MinDim[i])
+      if (compare(MaxDim[i], MinDim[i]) <= 0) // (MaxDim[i] <= MinDim[i])
         {
         MaxDim[i] = MinDim[i] + 1;
         }

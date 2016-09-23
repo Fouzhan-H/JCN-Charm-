@@ -9,11 +9,11 @@
 
 
 // Maximum number of components for domain and range coordinates.
-const unsigned int MaxRangeDim = 20;
-const unsigned int MaxDomainDim = 20;
+const unsigned int MaxRangeDim = 10;
+const unsigned int MaxDomainDim = 10;
 
 // Maximum number of slices per polytope.
-const unsigned int MaxNrSlicesPerPtope = 256;
+const unsigned int MaxNrSlicesPerPtope = 512;
 
 // Bounds on polytope structure.
 const int MaxNrFacetsPerPtope = 50;
@@ -56,6 +56,7 @@ public:
 
   //Return a read only handle to CenterFaces 
   const IdType * GetCenterFacets(){return &CenterFacets[0][0];};
+  void  ShdFacetSids(IdType id, IdType& uid, IdType& vid){uid = CenterFacets[id][0]; vid = CenterFacets[id][1];};
 
   void GetFacetCenter(IdType id, double * p);
   
@@ -139,7 +140,6 @@ public:
     IdType *frags, 
     IdType *ends);
 
-
 /*  // Description:
   // Retrieve the object holding the center point of
   // each stored polytope facet.
@@ -155,13 +155,13 @@ public:
   // Return the number of stored polytopes.
   vtkGetMacro(NrStoredPtopes, vtkIdType);
 */  
-  
+ void PrintActivePtope(IdType id);  
 private:
 //?  vtkPolytopeGeometry(const vtkPolytopeGeometry&); // Not implemented
 //?  void operator=(const vtkPolytopeGeometry&); // Not implemented
 
   static const int TABSIZE  =      9001;
-  static const int SETSIZE  =        32;
+  static const int SETSIZE  =      32;
   static const int MaxNrPtopes =    9999;
   static const int MaxNrFacets =  50000;
   
@@ -236,7 +236,7 @@ private:
 
   double *GetPtopeCoordMin(IdType id);
 //?  void GetPtopeFacets(vtkIdType id, vtkIdType *&ids, int &nr);
-  double *GetPtopeCenter(IdType id); 
+  double *GetPtopeCenter(IdType id);
   
   void EnsureCacheCapacity(IdType size); 
   void EnsureDblCacheCapacity(IdType size);

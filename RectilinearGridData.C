@@ -4,7 +4,7 @@
 #include <fstream>
 
 RectilinearGridData::RectilinearGridData(int M, int * start, int* size, const int* glb_dim, int N, char fileNames [][100])
-  : st(std::vector<int>(M))
+  : st(std::vector<IdType>(M))
   , sz(std::vector<int>(M)), 
   M_geom (M), N(N), glb_dim(glb_dim), fnames(fileNames){
 
@@ -181,17 +181,17 @@ void RectilinearGridData::Simplicate3D(short cs ){
   }
    
   switch (cs){
-    case 0: cell4[0] = 2; cell4[1] = 3; cell4[2]= 0; cell4[3]=7;    // cell4 = {2, 3, 0, 7};
+    case 0:  cell4[0] = 2; cell4[1] = 3; cell4[2]= 0; cell4[3]=7;    // cell4 = {2, 3, 0, 7};
             break;
-    case 1: cell4[0] = 2; cell4[1] = 0; cell4[2]= 6; cell4[3]=7;    // cell4 = {2, 0, 6, 7};
+    case 1:  cell4[0] = 2; cell4[1] = 0; cell4[2]= 6; cell4[3]=7;    // cell4 = {2, 0, 6, 7};
             break; 
-    case 2: cell4[0] = 3; cell4[1] = 0; cell4[2]= 1; cell4[3]=7;    // cell4 = {3, 0, 1, 7};
+    case 2:  cell4[0] = 3; cell4[1] = 0; cell4[2]= 1; cell4[3]=7;    // cell4 = {3, 0, 1, 7};
             break; 
-    case 3: cell4[0] = 0; cell4[1] = 1; cell4[2]= 7; cell4[3]=5;    // cell4 = {0, 1, 7, 5};
+    case 3:  cell4[0] = 0; cell4[1] = 1; cell4[2]= 7; cell4[3]=5;    // cell4 = {0, 1, 7, 5};
             break; 
-    case 4: cell4[0] = 0; cell4[1] = 6; cell4[2]= 7; cell4[3]=4;    // cell4 = {0, 6, 7, 4};
+    case 4:  cell4[0] = 0; cell4[1] = 6; cell4[2]= 7; cell4[3]=4;    // cell4 = {0, 6, 7, 4};
             break; 
-    case 5: cell4[0] = 0; cell4[1] = 7; cell4[2]= 4; cell4[3]=5;    // cell4 = {0, 7, 4, 5};
+    case 5:  cell4[0] = 0; cell4[1] = 7; cell4[2]= 4; cell4[3]=5;    // cell4 = {0, 7, 4, 5};
             break; 
   }
   

@@ -28,7 +28,7 @@ wishing to create their own VTK classes locally.
 // Description:
 // Small value to test the equality between two values.
 
-#define MYEPSILON 1.0e-7
+#define MYEPSILON 1.0e-12
 #define MAX_BUCKET_NUMBER 300000
 
 

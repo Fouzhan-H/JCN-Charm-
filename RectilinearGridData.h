@@ -26,7 +26,7 @@ public:
   void fetchCharInput(int i, float*); 
 private: 
   // start index and size in domain 
-  std::vector<int> st; 
+  std::vector<IdType> st; 
   std::vector<int> sz; 
   const int * glb_dim;
 

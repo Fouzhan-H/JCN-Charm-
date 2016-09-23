@@ -38,22 +38,24 @@ public:
 private:
   JointContourNet_SDAG_CODE
   void ComputeJCN(/* Needs to recive a wrapper over data files or and index*/);
-  void MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr); 
-  void UnfoldRecvBSlabs(CkReductionMsg * msg); 
-  void UpdateBorders(); 
+  void MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * AdjSlabs); 
+  void UpdateBorders(int set1_Nr, long long * set1_ids, int set2_Nr, long long * set2_ids); 
   void NextMergerStep();
 
   void datasetIndex(int dim, int n, int idx, int & st_i, int & dim_i);
+  void JCNtoFile (std::string fname);
   int itr_idx;
   int red_dim;
   int red_idx;
   bool fin_dim; 
+  bool upd_sec1; 
+  bool upd_sec2;
   CkCallback * finish_cb; 
   // local copy of a jcn graph includes 
   //   * a list of the center coordination (in the domain) of all slabs, and
   //   * a set of slab id pairs representing adjacent slabs
-  std::vector <std::vector<double>> slabs; 
-  std::set <std::pair<long long, long long>> edges; 
+  std::unique_ptr<std::vector <std::vector<double>>> slabs; 
+  std::unique_ptr<std::set <std::pair<long long, long long>>> edges; 
 
 };
 

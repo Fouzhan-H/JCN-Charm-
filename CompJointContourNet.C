@@ -11,8 +11,8 @@ CompJointContourNet::CompJointContourNet(RectilinearGridData *dset, int n, doubl
   N = n; 
   M_geom = dataset -> getGeometry();  
   M_topo = dataset -> CellComponentNr() - 1;  
-  for (int i = 0 ; i < N; i++) 
-     Fields[i] = new Field ( *(bases+i), *(sws+i), pointsNr); 
+  for (int i = 0 ; i < N; i++)
+     Fields[i] = new Field ( *(bases+i), *(sws+i), pointsNr);
 }
 
 CompJointContourNet::~CompJointContourNet(){
@@ -47,13 +47,11 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
    
   IdType cellsNum = dataset-> GetCellsNr(); 
   //read data
-
   fetchData(); 
 
   double dataBounds [MaxDomainDim];
   dataset -> GetSpatialBounds(dataBounds);
-
-  geometry.reset(new PolytopeGeometry(M_topo, M_geom, N, dataBounds)); 
+  geometry.reset(new PolytopeGeometry(M_topo, M_geom, N, dataBounds));
 
   // Main Loop:
   //
@@ -72,7 +70,7 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
     // Comapre the bounds with the remaining points of the current cell. 
     for (int i = 1; i < M_topo+1; i++){
       dataset -> GetCellComponent (c, i, point); 
-      
+
       for (int j = 0; j < M_geom; j++){
         domRange[2*j] = std::min(domRange[2*j], point[j]); 
         domRange[2*j+1] = std::max(domRange[2*j+1], point[j]);  
@@ -87,18 +85,18 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
     //compute the range bounds in each dimension, and 
     //create the corresponding point in the geometry processor. 
     for (int i =0; i < this->N; i++){
-        rngRange[2*i] = DBL_MAX; 
-        //rngRange[2*i] = std::numeric_limits<double>::max(); 
-        rngRange[2*i+1]= -DBL_MAX; 
-        //rngRange[2*i+1]= std::numeric_limits<double>::lowest(); 
+        rngRange[2*i] = DBL_MAX;
+        //rngRange[2*i] = std::numeric_limits<double>::max();
+        rngRange[2*i+1]= -DBL_MAX;
+        //rngRange[2*i+1]= std::numeric_limits<double>::lowest();
     }
     
     double fv;
-    IdType rid;  
+    IdType rid;
     for (int v = 0; v < M_topo+1; v++){
       // Get the domain coordinate and range index for each point in the simplex  
-      rid = dataset -> GetCellComponent(c, v, point);  
-      
+      rid = dataset -> GetCellComponent(c, v, point);
+
       //Collect the sample values and compute the sample ranges
       for (int r = 0; r < this->N; r++){
         coord[v][r] = fv = this->Fields[r]->pointScalars[rid];
@@ -109,22 +107,18 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
       //Add the vertex in the geometry processor  
       pointIds[v] = geometry -> AddCoord(point, coord[v]); 
     }
-  
 
     //  Build a simplex in the Geometry Processor 
     toFragmentNum = 0; 
-    toFragment[toFragmentNum++] = geometry -> BuildFromSimplex(pointIds, M_topo); 
-    
-    
+    toFragment[toFragmentNum++] = geometry -> BuildFromSimplex(pointIds, M_topo);
+
     //  For each Field 
-    for (int f=0; f < this->N; f++) { 
+    for (int f=0; f < this->N; f++){
       //    compute cutting planes 
-          
       thresholds[0] = this-> Fields[f]-> SlabRangeValue(rngRange[2*f]);  
-      
+
       for (slice = 1; thresholds[slice-1] < rngRange[2*f+1]; slice++)
         thresholds[slice] = thresholds[slice-1] + (this->Fields[f]->slabWidth);  
-
 
       if (slice == 1 && thresholds[0] <= rngRange[2*f]){
          // Trivial case: the only cutting plane lies at 
@@ -140,25 +134,23 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
                               thresholds, slice, 
                               f, frags, ends); 
 
-            for (int i = 0; i <= slice; i++){
-               if (frags[i]) newFragments[newFragmentsNum++] = frags[i]; 
-            }
+            for (int i = 0; i <= slice; i++)
+               if (frags[i]) newFragments[newFragmentsNum++] = frags[i];
 
-        } // loop on each fragment   
-        
-        std::swap<IdType*> (toFragment, newFragments);
-        std::swap<int> (toFragmentNum, newFragmentsNum);
-      } // Non-trivial case 
-            
-          
+        } // loop on each fragment
+
+        if (newFragmentsNum > 0){
+          std::swap<IdType*> (toFragment, newFragments);
+          std::swap<int> (toFragmentNum, newFragmentsNum);
+        }
+
+      } // Non-trivial case
+
     } // loon on each field
 
+    geometry->StoreActivePolytopes(toFragment, toFragmentNum);
      
-     geometry->StoreActivePolytopes(toFragment, toFragmentNum);
-     
- 
    } //Main loop on cells     
-
 
 
   // Merge Fragments ..
@@ -166,7 +158,6 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
   // record slab ids and slab values.
   // Record edges
   // Record facets on the boundary   
-
 
   IdType fragsNr = geometry -> GetNrStoredPtopes();   
   // Fragments slab values 
@@ -179,7 +170,7 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
     }
   }
   
-  std::cout << "Number of frags: " << fragsNr << " " << std::endl;
+  // TODO std::cout << "Number of frags: " << fragsNr << " " << std::endl;
  
   IdType cntr1 = 0; 
   IdType cntr2 = 0; 
@@ -192,7 +183,6 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
   IdType rootU, rootV; 
   bool equal; 
   for (IdType c = 0; c< facetsNr; c++, uptr += 2, vptr += 2){     
-     
       if (*vptr < 0 ){
          cntr2 ++;
          continue; 
@@ -227,7 +217,8 @@ void CompJointContourNet::compJCN(IdType & bndSlabNr, IdType & SlabNr) {
  
   bndSlabNr = cntr2; 
   SlabNr = SlabsNr; 
-  std::cout << "number of faces : " << facetsNr << " " << cntr1 << " " << std::endl;
+
+  // TODO std::cout << "number of faces : " << facetsNr << " " << cntr2 << std::endl;
 
 }
 
@@ -248,7 +239,6 @@ void CompJointContourNet::extractJCN( std::vector<std::vector <double>> & slabs
        s_idx++; 
     }
   }
-  
 
   // Find edges. 
   const IdType * uptr = geometry -> GetCenterFacets(); 
@@ -256,23 +246,22 @@ void CompJointContourNet::extractJCN( std::vector<std::vector <double>> & slabs
   IdType facetsNr = geometry -> GetFacetsNr(); 
   IdType vertU, vertV, u, v; 
   double * p = facetCntrs; 
-  long long * ids_itr = ids; 
+  long long * ids_itr = ids;
   for (IdType c = 0; c < facetsNr; c++, uptr+=2, vptr+=2){
-    if (*vptr < 0 ) {
+    if (*vptr < 0 ){
        // The facet is on boundary 
        geometry -> GetFacetCenter(c, p); // retrive  domain coordinate of the facet center 
        vertU = this -> UF -> operator[]( this -> Find (*uptr)); 
-       * ids_itr = (-vertU - 1); 
+       *ids_itr = (-vertU - 1); 
        ids_itr++; 
        p += M_geom;  
        continue; 
     }
     vertU = this -> UF -> operator[](this -> Find (*uptr)); 
     vertV = this -> UF -> operator[](this -> Find (*vptr)); 
-    if (vertU != vertV) {
+    if (vertU != vertV){
        u = -vertU - 1; 
        v = -vertV - 1; 
-       
        if (v < u) std::swap(u,v); 
        edges.insert (std::pair<IdType, IdType>(u,v)); 
     }    
@@ -297,5 +286,5 @@ IdType CompJointContourNet::Find(IdType x)
 
 void CompJointContourNet::fetchData(){
   for (int i = 0; i < N; i++)
-    dataset -> fetchInput(i, &(Fields[i]->pointScalars[0]) );
+    dataset -> fetchInput(i, Fields[i]->pointScalars.data() );
 }

@@ -18,19 +18,39 @@ module JointContourNet {
             RecvBSlabSet1(CkReductionMsg * br_set1) 
             serial{
               //MergeJCNs processes the Reduction messages and merge two adjacent JCNs(local and received by RecJCN)
+              // send `Update Slab ID` message to BSArray section,
               MergeJCNs(adj_gr, br_set1); 
-              // send `Update Slab ID` message to BSArray section, 
-              // TODO, may  have to be called from  MergeJCNs function
-              UpdateBorders();
               NextMergerStep();
+              Iterate(); 
             } 
     }   
 
+    entry void Iterate(){
+      if (upd_sec1 && upd_sec2){
+         when Updated1(), 
+              Updated2()
+              serial {
+                      // TODO: CkPrintf("upd1-2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                      RunMergeStep();}
+      }else{ 
+        if (upd_sec1){
+           when Updated1() serial {
+                                    // TODO: CkPrintf("upd1 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                                    RunMergeStep();}
+        } else{ if (upd_sec2){
+           when Updated2() serial {
+                                   // TODO:CkPrintf("upd2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                                   RunMergeStep();}
+           }
+        } 
+      }
+    }   
 
     entry void RecvJCN(JCNGrMsg * gr); 
     entry void RecvBSlabSet1(CkReductionMsg * msg);
-//    entry void RecvBSlabSet2(CkReductionMsg * msg); 
 
+    entry void Updated1();
+    entry void Updated2();
   };
 
 }

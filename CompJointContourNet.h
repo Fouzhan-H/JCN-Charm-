@@ -1,6 +1,5 @@
 #ifndef COMPJOINTCOUNTOURNET_H
 #define COMPJOINTCOUNTOURNET_H
-
 #include "RectilinearGridData.h"
 #include "PolytopeGeometry.h"
 
@@ -12,7 +11,7 @@
 #include <memory>
 
 
-#define EPSILON 0.0000001
+#define EPSILON 1.0e-10
 
 struct Field {
   Field (double bs, double sw, int sz)

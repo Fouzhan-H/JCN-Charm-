@@ -3,6 +3,9 @@
 
 #include "RectilinearGridData.h"
 #include "CompJointContourNet.h"
+#include  "MergJointContourNet.h"
+
+#include <fstream>
 
 JointContourNet :: JointContourNet(){
   fin_dim = (Ydiv == 1 && Zdiv == 1) ? true: false; 
@@ -34,10 +37,13 @@ void JointContourNet::Start(CkCallback & cb){
   RectilinearGridData dset (M_geom, st, sz, gz , Range_Dim , fns); //create RecGrid  
   //TODO: call ComputeJCN() 
   long long slabNr, bndSlabNr;  
-  CompJointContourNet cmpJCN (&dset, Range_Dim, bss, sws, dim_x * dim_y * dim_z); //TODO
+  long long pointNr = dim_x * dim_y * dim_z; 
+  CompJointContourNet cmpJCN (&dset, Range_Dim, bss, sws, pointNr); //TODO
+
   cmpJCN.compJCN(bndSlabNr, slabNr); 
  
-  slabs.resize(slabNr, std::vector<double> (Range_Dim));
+  slabs = std::unique_ptr<std::vector<std::vector<double>>> (new std::vector<std::vector<double>>(slabNr, std::vector<double>(Range_Dim))); // TODO delete  slabs.resize(slabNr, std::vector<double> (Range_Dim));
+  edges = std::unique_ptr<std::set<std::pair<long long, long long>>> (new std::set<std::pair<long long, long long>>());
   //create populate message 
   CkCallback mrg_cb(CkIndex_JointContourNet::RunMergeStep()
                    , CkArrayIndex3D(thisIndex.x, thisIndex.y, thisIndex.z), thisProxy);
@@ -46,7 +52,9 @@ void JointContourNet::Start(CkCallback & cb){
      msg -> st [i] = st[i]; 
      msg -> sz [i] = sz[i]; 
   }
-  cmpJCN.extractJCN(slabs, edges, msg->facetCntrs, msg->slabIDs); 
+  cmpJCN.extractJCN(*slabs, *edges, msg->facetCntrs, msg->slabIDs); 
+
+  // TODO JCNtoFile("comp-" + std::to_string(thisIndex.x) + "-" + std::to_string(thisIndex.z)+ "jcn.vtk");
 
   //TODO Populate the coressponding BoundSlab Array element   
   BoundSlabs * bslocal = BSArray(thisIndex.x, thisIndex.y, thisIndex.z).ckLocal();
@@ -54,8 +62,6 @@ void JointContourNet::Start(CkCallback & cb){
      BSArray(thisIndex.x, thisIndex.y, thisIndex.z).Populate(msg);
   else  
     bslocal->Populate(msg);
-  
-  CkPrintf("JArray (%i, %i, %i):  file names %s, %s\n", thisIndex.x, thisIndex.y, thisIndex.z, fns[0], fns[1]);
 
 }  
 
@@ -128,20 +134,27 @@ void JointContourNet :: RunMergeStep(){
     uplain_proxy.GetAdjacentSlabs(up_msg);
     lplain_proxy.SndBndFaces(lp_msg);
     thisProxy(thisIndex.x, thisIndex.y, thisIndex.z).Merger(itr_idx);  
+
   }else {
      if (lvl_id == (k >> 1)){        
        // Convert local JCN to a JCNGrMsg/ Initialize gr 
-       int slabsSz = Range_Dim * slabs.size();
-       int edgesSz = 2 * edges.size(); 
+       int slabsSz = Range_Dim * slabs->size();
+       int edgesSz = 2 * edges->size(); 
        JCNGrMsg * gr  = new (slabsSz, edgesSz ) JCNGrMsg();   
-       std::copy(slabs.data()->data(), (slabs.data())->data() + slabsSz, gr->vexs);
+       // Copy slab values into the JCNGrMsg
+       double * gr_vexp = gr -> vexs; 
+       for (int i = 0; i < slabs -> size(); i++){
+         for (short j = 0 ; j < Range_Dim; j++)
+           *gr_vexp++= (*slabs)[i][j];
+       }    
+       // Copy edges into the JCNGrMsg
        int edge_it = 0; 
-       for (std::set<std::pair<long long, long long>>::iterator it = edges.begin(); it != edges.end(); ++it, edge_it+=2 ){
+       for (std::set<std::pair<long long, long long>>::iterator it = edges->begin(); it != edges->end(); ++it, edge_it+=2 ){
           gr->edgs [edge_it] = std::get<0>(*it); 
           gr->edgs [edge_it +1] = std::get<1>(*it); 
        }
-       gr -> slabCnt = slabs.size();
-       gr -> edgCnt = edges.size();
+       gr -> slabCnt = slabs->size();
+       gr -> edgCnt = edges->size();
        CkSetRefNum(gr, itr_idx);           //set the message tag (reduction Level)
        switch (red_dim){
          case 1: thisProxy( thisIndex.x - (k >> 1) , thisIndex.y, thisIndex.z).RecvJCN(gr); break; 
@@ -177,90 +190,189 @@ void JointContourNet:: NextMergerStep(){
   itr_idx++; 
 
   if (red_dim >= 4){
-    //TODO: computation ends
+    // write out final JCN in a file
+    CkPrintf("Slab Nr: %i Edge Nr: %i \n", slabs -> size(), edges -> size());
+    JCNtoFile("jcn.vtk");
     finish_cb->send(); 
     // Main_Proxy.done();      
   }
 }
 
 
-void JointContourNet :: UpdateBorders(){
+void JointContourNet :: UpdateBorders(int set1_Nr, long long * set1_ids, int set2_Nr, long long * set2_ids){
   int k = 1 << red_idx;
+  int hk = 1 << (red_idx - 1);
+  upd_sec1 = true; 
+  upd_sec2 = true; 
   // Create section on BSArray (add indices and call new)
-  CProxySection_BoundSlabs sec_proxy; 
+  CProxySection_BoundSlabs sec1_proxy; 
+  CProxySection_BoundSlabs sec2_proxy; 
   switch (red_dim) { //TODO: check the logic one more time
-    case 1: if (!fin_dim)
-              sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x+k-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
-            else { 
-              if (thisIndex.x > 0 && thisIndex.x + k < Xdiv)
-                sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x+k-1, k-1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
-              else {
-                if (thisIndex.x == 0)
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x+k-1, thisIndex.x+k-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
-                else // if (thisIndex.x + k  == Xdiv  )
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+    case 1: if (!fin_dim){
+              sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x + hk-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+              sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x + hk, thisIndex.x+k-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+            }else { 
+               if (thisIndex.x > 0 && thisIndex.x + k < Xdiv){
+                 sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+                 sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x+k-1, thisIndex.x+k-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+               } else {
+                  if (thisIndex.x == 0){
+                    upd_sec1= false; 
+                    sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x+k-1, thisIndex.x+k-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+                  }else{ // if (thisIndex.x + k  == Xdiv  )
+                    sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, thisIndex.x, thisIndex.x, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+                    upd_sec2 = false; 
+                  }
               }
             }  
             break;
-    case 2: if (!fin_dim) 
-              sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y+k-1, 1, thisIndex.z, thisIndex.z, 1); 
-            else {
-              if (thisIndex.y > 0 && thisIndex.y+k < Ydiv)
-                sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y+k-1, k -1, thisIndex.z, thisIndex.z, 1);
-              else {
-                if (thisIndex.y == 0) 
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y+k-1, thisIndex.y+k-1, 1, thisIndex.z, thisIndex.z, 1); 
-                else  // if (thisIndex.y + k  == Ydiv  ) 
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
-              }
+    case 2: if (!fin_dim){ 
+              sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y+hk-1, 1, thisIndex.z, thisIndex.z, 1); 
+              sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y+hk, thisIndex.y+k-1, 1, thisIndex.z, thisIndex.z, 1); 
+            } else {
+               if (thisIndex.y > 0 && thisIndex.y+k < Ydiv){
+                sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1);
+                sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y+k-1, thisIndex.y+k-1, 1, thisIndex.z, thisIndex.z, 1);
+               } else {
+                  if (thisIndex.y == 0){ 
+                    upd_sec1 = false; 
+                    sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y+k-1, thisIndex.y+k-1, 1, thisIndex.z, thisIndex.z, 1); 
+                  }else{  // if (thisIndex.y + k  == Ydiv  ) 
+                    sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, thisIndex.y, thisIndex.y, 1, thisIndex.z, thisIndex.z, 1); 
+                    upd_sec2 = false; 
+                  }
+               }
             }
             break; 
-    case 3: if (!fin_dim)
-              sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z+k-1, 1); 
-            else{
-              if (thisIndex.z > 0 && thisIndex.z+k < Zdiv)
-                sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z+k-1, k-1); 
-              else{
-                if (thisIndex.z == 0)    
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z+k-1, thisIndex.z+k-1, 1); 
-                else
-                  sec_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z, 1); 
+    case 3: if (!fin_dim){
+              sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z+hk-1, 1); 
+              sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z+hk, thisIndex.z+k-1, 1); 
+            } else{
+              if (thisIndex.z > 0 && thisIndex.z+k < Zdiv){
+                sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z, 1); 
+                sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z+k-1, thisIndex.z+k-1, 1); 
+              } else{
+                if (thisIndex.z == 0){    
+                  upd_sec1 = false; 
+                  sec2_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z+k-1, thisIndex.z+k-1, 1); 
+                }else{
+                  sec1_proxy = CProxySection_BoundSlabs::ckNew(BSArray, 0, Xdiv-1, 1, 0, Ydiv-1, 1, thisIndex.z, thisIndex.z, 1); 
+                  upd_sec2 = false; 
+                }
               }
             }
             break; 
   }
   CkMulticastMgr *  mCastGrp = CProxy_CkMulticastMgr(mCastGrpId).ckLocalBranch();
-  sec_proxy.ckSectionDelegate(mCastGrp);  
-  //Create  update boundary message
+  //Create  callback
   CkArrayIndex3D charIdx(thisIndex.x, thisIndex.y, thisIndex.z);
-  CkCallback cb(CkIndex_JointContourNet::RunMergeStep(), charIdx, thisProxy);
-  UpdIDsMsg * up_msg = new (5) UpdIDsMsg(cb); // TODO: Initialize correctly
-  CkSetRefNum(up_msg, itr_idx);
-  // Multicast/reduction call
-  sec_proxy.UpdateSlabIDs(up_msg);
-}
 
+  long long * srcp, *desp; 
+  if (upd_sec1){
+    sec1_proxy.ckSectionDelegate(mCastGrp);  
+    CkCallback cb(CkIndex_JointContourNet::Updated1(), charIdx, thisProxy);
+    UpdIDsMsg * up_msg1 = new (set1_Nr) UpdIDsMsg(cb);
+    std::copy(set1_ids, set1_ids+set1_Nr, up_msg1 -> ids); // Copy id mapping from Union-Find structure into an UpdIDsMsg 
+    CkSetRefNum(up_msg1, itr_idx);
+    sec1_proxy.UpdateSlabIDs(up_msg1);                     // Multicast/reduction call
+  }
+  
+  if (upd_sec2){
+    sec2_proxy.ckSectionDelegate(mCastGrp);  
+    CkCallback cb(CkIndex_JointContourNet::Updated2(), charIdx, thisProxy);
+    UpdIDsMsg * up_msg2 = new (set2_Nr) UpdIDsMsg(cb);
+    std::copy(set2_ids, set2_ids + set2_Nr, up_msg2->ids); // Copy id mapping from Union-Find structure into an UpdIDsMsg 
+    CkSetRefNum(up_msg2, itr_idx);
+    sec2_proxy.UpdateSlabIDs(up_msg2);                     // Multicast/reduction call
+  }
+}
 
 void JointContourNet :: ComputeJCN(){}
  
-void JointContourNet :: MergeJCNs(JCNGrMsg * sndGr, CkReductionMsg * fstBr ){
-  // TODO: computation
-  delete sndGr; 
-  delete fstBr;
+void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
+  
+  std::vector<std::vector<double>> * slabs_gr1 = slabs.release();
+  std::set<std::pair<long long, long long>> * edges_gr1 = edges.release();
+
+  MergJointContourNet jcn_merger (slabs_gr1 -> size(), slabs_gr1, rcvdGr -> slabCnt, rcvdGr -> vexs, Range_Dim); 
+  
+  // Use CkReduction:setElement to recover each shared border 
+  // And process adjacent slabs by calling AddAdjacentSlabs(..) of jcn_merger
+  CkReduction::setElement * set_itr = (CkReduction::setElement *) adjSlabs->getData();
+  long long * elem;
+  while(set_itr != NULL){
+    elem = (long long *) &set_itr -> data; 
+    jcn_merger.AddAdjacentSlabs(elem + 1 , *elem);     
+    set_itr = set_itr -> next();
+  }
+
+  long long slabsNr;
+  jcn_merger.ExtractJCNSlabs(slabsNr);
+
+  slabs.reset(new std::vector<std::vector<double>>(slabsNr, std::vector<double>(Range_Dim))); 
+  edges.reset(new std::set<std::pair<long long, long long>>());
+
+  jcn_merger.ExtractJCNGr(*slabs, *edges, *edges_gr1, rcvdGr -> edgs, rcvdGr -> edgCnt);  
+
+  long long * uids = jcn_merger.UpdIdMap();
+  UpdateBorders(slabs_gr1 -> size(), uids, rcvdGr -> slabCnt, uids + (slabs_gr1 -> size()));
+
+  delete slabs_gr1; 
+  delete edges_gr1; 
+  delete rcvdGr; 
+  delete adjSlabs;
 
 }
 
+void JointContourNet::JCNtoFile(std::string fname){
+   std::ofstream fh (fname);
+
+   IdType vn = slabs->size();
+   IdType en = edges->size(); 
+   int rngn = slabs->operator[](0).size();
+
+   fh << "# vtk DataFile Version 3.0" << std::endl 
+      << "vtk output" << std::endl
+      << "ASCII" << std::endl
+      << "DATASET UNDIRECTED_GRAPH"  << std::endl
+      << "POINTS " << vn << " float" << std::endl; 
+      
+
+   // print out the domain coordinates 
+   IdType td = vn / 3; 
+   int tr = vn % 3; 
+   for (IdType i = 0; i < td ; i++)
+       fh << "0 0 0 0 0 0 0 0 0" << std::endl; 
+   if (tr != 0) {
+     for (int i = 0; i < tr; i++)
+         fh << "0 0 0 "; 
+     fh << std::endl; 
+   }
+   
+   fh << "VERTICES " <<  vn << std::endl; 
+   fh << "EDGES " << en << std::endl; 
+
+   // print out edges. 
+   for (std::set<std::pair<long long, long long>>::iterator it=edges->begin(); it != edges ->end(); ++it)
+     fh << (*it).first << " " << (*it).second << std::endl; 
+
+   fh << "VERTEX_DATA " << vn << std::endl; 
+   fh << "FIELD FieldData " <<  rngn << std::endl; 
 
 
-void JointContourNet :: UnfoldRecvBSlabs(CkReductionMsg * msg){
-  // Use CkReduction:setElement to recover each border 
-  CkReduction::setElement * set_itr = (CkReduction::setElement *) msg->getData();
-  while(set_itr != NULL){
-    AdjFacesMsg * elem = (AdjFacesMsg *) &set_itr -> data; 
-    // TODO : add the element to a local data structure 
-    set_itr = set_itr -> next();
-  }
-  // TODO maybe a separate method is not necessary 
+   // print out the slab values    
+   for (int i =0; i < rngn; i++){
+     fh << fns[i] << " 1 " << vn << " double"   << std::endl;
+ 
+     for (IdType j = 0; j < vn;){
+        for (IdType  k = 0; j < vn && k < 10 ; j++, k++ ){           
+           fh << (*slabs)[j][i] << " "; 
+        }
+        fh << std::endl; 
+     }
+   } // loop on range dimension
+   
+  fh.close();
 }
 
 #include "JointContourNet.def.h"

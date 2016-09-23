@@ -12,11 +12,6 @@ module BoundSlabs{
     long long ids []; 
   };
 
-  message AdjFacesMsg{
-    long long fst_ids []; 
-    long long snd_ids[]; 
-  };
-
   message UpdIDsMsg{
     long long ids []; 
   };

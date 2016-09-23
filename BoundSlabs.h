@@ -1,10 +1,12 @@
 #ifndef BOUNDSLABS_H
 #define BOUNDSLABS_H
 
+#include "CommonDef.h"
 #include <vector>
 #include <array>
 
 #include <ckmulticast.h>
+#include <pup_stl.h>
 
 extern int Xdiv;
 extern int Ydiv;
@@ -33,12 +35,35 @@ public:
   int no;  
 };
 
-class AdjFacesMsg : public CMessage_AdjFacesMsg{
+/* TODO delete
+class AdjFacesMsg {
 public:
-  long long * fst_ids; 
-  long long * snd_ids; 
+  AdjFacesMsg(int n) {
+    no = n;  
+    fst_ids = new long long [n];
+    snd_ids = new long long [n];
+  };
+  AdjFacesMsg(){};
+
+  void pup(PUP::er &p){
+    p|no; 
+    if (p.isUnpacking()){
+      fst_ids = new long long [no];
+      snd_ids = new long long [no];
+    }
+    PUParray(p, fst_ids, no);
+    PUParray(p, snd_ids, no);
+  };
+
+  ~AdjFacesMsg(){
+     delete fst_ids;
+     delete snd_ids;
+  }
+
+  long long * fst_ids; // std::vector<long long> fst_ids;
+  long long * snd_ids; // std::vector<long long> snd_ids;  
   int no; 
-};
+};*/
 
 class UpdIDsMsg : public CkMcastBaseMsg, public CMessage_UpdIDsMsg {
 public:
@@ -79,6 +104,8 @@ private:
   void FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * fs_msg); 
   bool ExpectGetBound(); 
   short FindBorder(double * point); 
+  void AdjSlabs(long long facetsNr, BndFacesMsg * set1, BndFacesMsg * set2,  long long * adj_msg); 
+  void UpdateSlabIDs(short idx);
   std::vector <std::array<double, 2>> ranges; 
   int M_geom; 
   int iter; 
@@ -90,10 +117,6 @@ private:
   std::vector <BndFacesMsg *> plains;
   long long * slab_ids;
   long long slab_nr;  
-/*  std::vector <std::vector <std::vector<double>> * > lPlainsFaces; 
-  std::vector <std::vector <long long> * > lPlainsIDs; 
-  std::vector <std::vector <std::vector<double>> * > uPlainsFaces; 
-  std::vector <std::vector <long long> * > uPlainsIDs; */
 };
 
 #endif
