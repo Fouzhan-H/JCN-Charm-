@@ -28,42 +28,11 @@ public:
 
 class BndFacesMsg : public CMessage_BndFacesMsg {
 public:
-  BndFacesMsg (int n)
+  BndFacesMsg (long long n)
     : CMessage_BndFacesMsg(), no(n){}
-  double * cntrs;  // a 2D array of size no*3 (domain dimension) 
   long long * ids; //TODO IDType
-  int no;  
+  long long no;  
 };
-
-/* TODO delete
-class AdjFacesMsg {
-public:
-  AdjFacesMsg(int n) {
-    no = n;  
-    fst_ids = new long long [n];
-    snd_ids = new long long [n];
-  };
-  AdjFacesMsg(){};
-
-  void pup(PUP::er &p){
-    p|no; 
-    if (p.isUnpacking()){
-      fst_ids = new long long [no];
-      snd_ids = new long long [no];
-    }
-    PUParray(p, fst_ids, no);
-    PUParray(p, snd_ids, no);
-  };
-
-  ~AdjFacesMsg(){
-     delete fst_ids;
-     delete snd_ids;
-  }
-
-  long long * fst_ids; // std::vector<long long> fst_ids;
-  long long * snd_ids; // std::vector<long long> snd_ids;  
-  int no; 
-};*/
 
 class UpdIDsMsg : public CkMcastBaseMsg, public CMessage_UpdIDsMsg {
 public:
@@ -92,21 +61,23 @@ public:
 
 
 class BoundSlabs : public CBase_BoundSlabs {
-  BoundSlabs_SDAG_CODE
 public:
   BoundSlabs(int M_geom); 
-  ~BoundSlabs();
+  virtual ~BoundSlabs();
+  virtual void pup(PUP::er &p);
   BoundSlabs(CkMigrateMessage * msg); 
   void Populate(BSPopulateMsg * msg); 
   void SndSlabFaces(TargetBndMsg * msg);
   void UpdSlabIDs(UpdIDsMsg * msg);  
 private:
+  BoundSlabs_SDAG_CODE
   void FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * fs_msg); 
   bool ExpectGetBound(); 
   short FindBorder(double * point); 
-  void AdjSlabs(long long facetsNr, BndFacesMsg * set1, BndFacesMsg * set2,  long long * adj_msg); 
+//TODO  void AdjSlabs(long long facetsNr, BndFacesMsg * set1, BndFacesMsg * set2,  long long * adj_msg); 
   void UpdateSlabIDs(short idx);
-  std::vector <std::array<double, 2>> ranges; 
+
+  std::vector <std::pair<double, double>> ranges; 
   int M_geom; 
   int iter; 
   int x_itr;
@@ -114,7 +85,7 @@ private:
   int z_itr; 
   int max_iter;
   // TODO : data structure
-  std::vector <BndFacesMsg *> plains;
+  std::vector<std::vector<long long>> plains; 
   long long * slab_ids;
   long long slab_nr;  
 };

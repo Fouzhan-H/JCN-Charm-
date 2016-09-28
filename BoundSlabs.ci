@@ -8,7 +8,6 @@ module BoundSlabs{
   };
  
   message BndFacesMsg{
-    double cntrs []; 
     long long ids []; 
   };
 

@@ -7,16 +7,68 @@
 
 #include <fstream>
 
-JointContourNet :: JointContourNet(){
+JointContourNet :: JointContourNet(): finish_cb(NULL), slabs(NULL), edges(NULL){
   fin_dim = (Ydiv == 1 && Zdiv == 1) ? true: false; 
   itr_idx = 0;  
   red_dim =1 ; red_idx = 0; 
   NextMergerStep(); 
 }
  
+JointContourNet :: JointContourNet(CkMigrateMessage * msg){
+  finish_cb = NULL; 
+  slabs = NULL;
+  edges = NULL; 
+}
+
 JointContourNet :: ~JointContourNet(){
   if (finish_cb != NULL)
     delete finish_cb;
+  if (slabs != NULL)
+    delete slabs; 
+  if (edges != NULL)
+    delete edges; 
+}
+
+void JointContourNet::pup(PUP::er &p){
+  CkPrintf("JCN (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
+  if (p.isPacking()) CkPrintf("JCN (%i, %i, %i) packing slab_nr: %i  edge_nr: %i \n", thisIndex.x, thisIndex.y, thisIndex.z, slabs->size(), edges->size());
+  if (p.isUnpacking()) CkPrintf("JCN (%i, %i, %i) unpacking slab_nr: %i  edge_nr: %i \n", thisIndex.x, thisIndex.y, thisIndex.z, slabs->size(), edges->size());
+
+  CBase_JointContourNet::pup(p);
+  __sdag_pup(p);
+
+  p| itr_idx;
+  p| red_dim;
+  p| red_idx; 
+  p| fin_dim; 
+  p| upd_sec1;
+  p| upd_sec2;
+  //PUP data member finish_cb of type CkCallback* 
+  int has_f_cb = (finish_cb != NULL);
+  p| has_f_cb; 
+  if (has_f_cb){
+    if (p.isUnpacking()) finish_cb = new CkCallback();
+    p | *finish_cb; 
+  }else 
+     finish_cb = NULL; 
+  //PUP data member slabs; 
+  int has_slabs = (slabs != NULL);
+  p| has_slabs; 
+  if (has_slabs){
+    if (p.isUnpacking()) slabs = new std::vector<std::vector<double>> (0, std::vector<double>(Range_Dim));
+    p | *slabs; 
+  }else 
+     slabs = NULL;
+  //PUUP data member edges
+  int has_edges = (edges != NULL);
+  p| has_edges; 
+  if (has_edges){
+    if (p.isUnpacking()) edges = new std::set<std::pair<long long, long long>>();
+    p| *edges; 
+  }else 
+     edges = NULL; 
+
+  CkPrintf("JCN end (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
 }
 
 void JointContourNet::Start(CkCallback & cb){
@@ -42,8 +94,8 @@ void JointContourNet::Start(CkCallback & cb){
 
   cmpJCN.compJCN(bndSlabNr, slabNr); 
  
-  slabs = std::unique_ptr<std::vector<std::vector<double>>> (new std::vector<std::vector<double>>(slabNr, std::vector<double>(Range_Dim))); // TODO delete  slabs.resize(slabNr, std::vector<double> (Range_Dim));
-  edges = std::unique_ptr<std::set<std::pair<long long, long long>>> (new std::set<std::pair<long long, long long>>());
+  slabs = new std::vector<std::vector<double>> (slabNr, std::vector<double>(Range_Dim)); //TODO std::unique_ptr<std::vector<std::vector<double>>> (new std::vector<std::vector<double>>(slabNr, std::vector<double>(Range_Dim)));
+  edges = new std::set<std::pair<long long, long long>>(); // TODO std::unique_ptr<std::set<std::pair<long long, long long>>> (new std::set<std::pair<long long, long long>>());
   //create populate message 
   CkCallback mrg_cb(CkIndex_JointContourNet::RunMergeStep()
                    , CkArrayIndex3D(thisIndex.x, thisIndex.y, thisIndex.z), thisProxy);
@@ -65,8 +117,6 @@ void JointContourNet::Start(CkCallback & cb){
 
 }  
 
-JointContourNet :: JointContourNet(CkMigrateMessage * msg){}
-
 void JointContourNet::datasetIndex(int dim, int n, int idx, int & st_i, int & dim_i){
   int quot = (dim-1) / n; 
   int rem = (dim-1) % n; 
@@ -79,7 +129,6 @@ void JointContourNet::datasetIndex(int dim, int n, int idx, int & st_i, int & di
     dim_i = quot+1;
   }
 }
-
 
 void JointContourNet :: RunMergeStep(){
 
@@ -134,6 +183,8 @@ void JointContourNet :: RunMergeStep(){
     uplain_proxy.GetAdjacentSlabs(up_msg);
     lplain_proxy.SndBndFaces(lp_msg);
     thisProxy(thisIndex.x, thisIndex.y, thisIndex.z).Merger(itr_idx);  
+    
+    CkPrintf("RunMerger-Receiver (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
 
   }else {
      if (lvl_id == (k >> 1)){        
@@ -161,6 +212,12 @@ void JointContourNet :: RunMergeStep(){
          case 2: thisProxy(0, thisIndex.y - (k>>1), thisIndex.z).RecvJCN(gr); break; 
          case 3: thisProxy(0, 0, thisIndex.z - (k>>1)).RecvJCN(gr); break; 
        }
+       delete slabs;
+       slabs = NULL; 
+       delete edges; 
+       edges = NULL; 
+       CkPrintf("RunMerger-sender (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+
 //       thisProxy(thisIndex).ckDestroy();
     }
   }
@@ -285,14 +342,18 @@ void JointContourNet :: UpdateBorders(int set1_Nr, long long * set1_ids, int set
     CkSetRefNum(up_msg2, itr_idx);
     sec2_proxy.UpdateSlabIDs(up_msg2);                     // Multicast/reduction call
   }
+  
+  CkPrintf("Update Msg sent (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
 }
 
 void JointContourNet :: ComputeJCN(){}
  
 void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
   
-  std::vector<std::vector<double>> * slabs_gr1 = slabs.release();
-  std::set<std::pair<long long, long long>> * edges_gr1 = edges.release();
+  CkPrintf("Merger start (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+  
+  std::vector<std::vector<double>> * slabs_gr1 = slabs;
+  std::set<std::pair<long long, long long>> * edges_gr1 = edges;
 
   MergJointContourNet jcn_merger (slabs_gr1 -> size(), slabs_gr1, rcvdGr -> slabCnt, rcvdGr -> vexs, Range_Dim); 
   
@@ -309,8 +370,8 @@ void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
   long long slabsNr;
   jcn_merger.ExtractJCNSlabs(slabsNr);
 
-  slabs.reset(new std::vector<std::vector<double>>(slabsNr, std::vector<double>(Range_Dim))); 
-  edges.reset(new std::set<std::pair<long long, long long>>());
+  slabs = new std::vector<std::vector<double>>(slabsNr, std::vector<double>(Range_Dim)); 
+  edges = new std::set<std::pair<long long, long long>>();
 
   jcn_merger.ExtractJCNGr(*slabs, *edges, *edges_gr1, rcvdGr -> edgs, rcvdGr -> edgCnt);  
 
@@ -321,6 +382,7 @@ void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
   delete edges_gr1; 
   delete rcvdGr; 
   delete adjSlabs;
+  CkPrintf("Merger ends (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
 
 }
 

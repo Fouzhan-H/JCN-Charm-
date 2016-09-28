@@ -30,11 +30,11 @@ public:
 class JointContourNet : public CBase_JointContourNet{
 public:
   JointContourNet();
-  ~JointContourNet();
+  virtual ~JointContourNet();
   JointContourNet(CkMigrateMessage * msg);
+  virtual void pup(PUP::er &p);
   void Start(CkCallback & cb);    
   void RunMergeStep();  
-
 private:
   JointContourNet_SDAG_CODE
   void ComputeJCN(/* Needs to recive a wrapper over data files or and index*/);
@@ -54,8 +54,8 @@ private:
   // local copy of a jcn graph includes 
   //   * a list of the center coordination (in the domain) of all slabs, and
   //   * a set of slab id pairs representing adjacent slabs
-  std::unique_ptr<std::vector <std::vector<double>>> slabs; 
-  std::unique_ptr<std::set <std::pair<long long, long long>>> edges; 
+  std::vector <std::vector<double>> * slabs;        // std::unique_ptr<std::vector <std::vector<double>>> slabs; 
+  std::set <std::pair<long long, long long>> * edges; // std::unique_ptr<std::set <std::pair<long long, long long>>> edges; 
 
 };
 

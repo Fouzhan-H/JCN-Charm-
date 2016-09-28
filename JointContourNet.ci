@@ -30,16 +30,16 @@ module JointContourNet {
          when Updated1(), 
               Updated2()
               serial {
-                      // TODO: CkPrintf("upd1-2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                      CkPrintf("upd1-2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
                       RunMergeStep();}
       }else{ 
         if (upd_sec1){
            when Updated1() serial {
-                                    // TODO: CkPrintf("upd1 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                                    CkPrintf("upd1 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
                                     RunMergeStep();}
         } else{ if (upd_sec2){
            when Updated2() serial {
-                                   // TODO:CkPrintf("upd2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
+                                   CkPrintf("upd2 (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
                                    RunMergeStep();}
            }
         } 

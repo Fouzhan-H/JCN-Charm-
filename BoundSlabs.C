@@ -19,8 +19,8 @@ bool FacetOrder(std::pair<std::vector<double>, long long> u
 
 BoundSlabs :: BoundSlabs(int M_geom) 
   : M_geom (M_geom)
-  , ranges(std::vector <std::array<double, 2>>(M_geom))
-  , plains (std::vector<BndFacesMsg *>(2*M_geom)){
+  , ranges(std::vector <std::pair<double, double>>(M_geom))
+  , plains (std::vector<std::vector<long long>>(2*M_geom)), slab_ids(NULL), slab_nr(0){
   //Initializae iter and max_iter, max_iter is equal to the height of the reduction tree
   iter = 1; 
   x_itr = y_itr = z_itr = 0; 
@@ -52,57 +52,74 @@ BoundSlabs :: BoundSlabs(int M_geom)
    
 }
 
-BoundSlabs :: BoundSlabs(CkMigrateMessage * msg){}
+BoundSlabs :: BoundSlabs(CkMigrateMessage * msg){
+  slab_ids =  NULL;
+}
+
+void BoundSlabs::pup(PUP::er &p){
+  CkPrintf("BSArray start (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
+  CBase_BoundSlabs::pup(p);
+  __sdag_pup(p); 
+  
+  p|M_geom; 
+  p|iter; 
+  p|x_itr;
+  p|y_itr;
+  p|z_itr;
+  p|max_iter;
+  p|slab_nr;
+  p|plains; 
+  p| ranges;
+  int has_slabids = (slab_ids != NULL);
+  p| has_slabids; 
+  if (has_slabids){
+    if (p.isUnpacking()) slab_ids = new long long [slab_nr];  
+    PUParray(p, slab_ids, slab_nr); 
+  }else 
+     slab_ids = NULL;
+  CkPrintf("BSArray (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
+} 
 
 BoundSlabs::~BoundSlabs(){
-  for (short i = 0; i < plains.size(); i ++){
-    if (plains[i] != NULL) delete plains[i]; 
-  }
   if (slab_ids != NULL) delete slab_ids;   
 }
 
 void BoundSlabs :: Populate(BSPopulateMsg * msg){
   long long facetNr = msg -> facetNr; 
   for (int i = 0; i < M_geom; i++){
-    ranges[i][0] = msg -> st[i];
-    ranges[i][1] = msg -> st[i] + msg -> sz[i] -1; 
+    ranges[i].first = msg -> st[i];
+    ranges[i].second = msg -> st[i] + msg -> sz[i] -1; 
   }
  
+  std::vector< std::vector<std::pair<std::vector<double>, long long>>> bnd_faces (2*M_geom);
   // Iterate over all facets 
   //   * determine which border they sit on
-  //   * Count the number of faces on each border
-  //   * Create new message for each border
-  //   * Intialize each border with the corresponding face centers and ids
-  std::vector<int> cntr = std::vector<int>(2*M_geom,0);
-  short * plainIdx = new short [facetNr];  
-  short * b_idx = plainIdx;  
+  //   * Insert the center point and slab id in the correct boundary plain 
+  //   * Sort faces on each border baced on their center points 
+  //   * Record slab ids of sorted faces in each border 
+  short plainIdx;
+  std::vector<double> cntr_point (M_geom);
   double * p = msg -> facetCntrs; 
-  for (long long i = 0; i < facetNr; i++, p += M_geom, ++b_idx){ 
-    *b_idx = FindBorder(p);
-    if (*b_idx == -1) {
-      CkPrintf("BArray (%i, %i, %i) ranges (%f, %f, %f , %f, %f, %f) Nr %d of facetNr: %d Plain was not found %f %f %f slabID: %d \n", thisIndex.x, thisIndex.y, thisIndex.z, ranges[0][0], ranges[0][1], ranges[1][0], ranges[1][1], ranges[2][0], ranges[2][1], i, facetNr,  *p, *(p+1), *(p+2), msg -> slabIDs[i]);
+  for (long long i = 0; i < facetNr; i++, p += M_geom){ 
+    plainIdx = FindBorder(p);
+    if (plainIdx == -1) {
+      CkPrintf("BArray (%i, %i, %i),  Nr %d of facetNr: %d Plain was not found %f %f %f slabID: %d \n", thisIndex.x, thisIndex.y, thisIndex.z, i, facetNr,  *p, *(p+1), *(p+2), msg -> slabIDs[i]);
       CkExit();
     }
-    cntr[*b_idx] += 1; 
+    for (short j =0; j < M_geom; j++) 
+       cntr_point[j] = p[j]; 
+    bnd_faces[plainIdx].push_back(std::pair<std::vector<double>, long long> (cntr_point, msg->slabIDs[i]));  
   }
 
-  for (int i = 0; i < 2*M_geom; i++)   // messages for each border
-    plains[i] = new (cntr[i]*M_geom, cntr[i]) BndFacesMsg(cntr[i]);
+  for (short i = 0; i < 2*M_geom; i++)  
+    std::sort(bnd_faces[i].begin(), bnd_faces[i].end() , FacetOrder);
+
+  for (short i = 0; i < 2*M_geom; i++){
+     plains[i].resize(bnd_faces[i].size()); 
+     for (long long  j =0 ; j < bnd_faces[i].size(); j++)
+       plains[i][j] = bnd_faces[i][j].second;
+  }
   
-  short n; 
-  long long m;
-  b_idx = plainIdx; 
-  std::vector<long long> f_idx = std::vector<long long>(2*M_geom, 0);
-  for (long long i = 0; i < facetNr; ++i, ++b_idx){ // initialize messages 
-    n = *b_idx;
-    m = f_idx[n];
-    // copy point and id to the correspondign boundary
-    *(plains[n] -> ids + m)  = msg -> slabIDs[i]; 
-    for (int j = 0; j < M_geom; j++)
-      *(plains[n] -> cntrs + m * M_geom + j) =  msg -> facetCntrs [i*M_geom + j];
-    f_idx [n] += 1;
-  }
-
   slab_nr = msg -> slabNr; 
   slab_ids = new long long [slab_nr];
   for (long long i = 0; i < slab_nr; i++)
@@ -115,48 +132,54 @@ void BoundSlabs :: Populate(BSPopulateMsg * msg){
 }
 
 void BoundSlabs :: UpdateSlabIDs (short idx){
-  BndFacesMsg * fs_msg = plains[idx];
   // Update slab IDs
   long long tmp; 
-  for (long long i = 0; i < fs_msg -> no ; i++){
-    tmp = fs_msg -> ids[i]; 
-    fs_msg -> ids[i] = slab_ids[tmp];    
+  for (long long i = 0; i < plains[idx].size() ; i++){
+    tmp = plains[idx][i]; 
+    plains[idx][i] = slab_ids[tmp];    
   }
 }
 
 void BoundSlabs :: SndSlabFaces(TargetBndMsg * msg){
   short b_idx = 2*(msg ->dim-1) + (msg->topPlain ? 1 : 0); 
 
-  // Update slab IDs
-  UpdateSlabIDs(b_idx);
-  BndFacesMsg * fs_msg = plains[b_idx];
+  UpdateSlabIDs(b_idx);                                  // Update slab IDs
+  long long no = plains[b_idx].size();
+  BndFacesMsg * ids_msg = new (no) BndFacesMsg(no);       // Create and initailaize out message
+  for (long long i = 0; i < plains[b_idx].size(); i++)
+    *(ids_msg -> ids + i) = plains[b_idx][i];
+
  
-  CkSetRefNum(fs_msg, iter);
+  CkSetRefNum(ids_msg, iter);
   switch (msg->dim){
-    case 1: thisProxy(thisIndex.x-1, thisIndex.y, thisIndex.z).RecvSlabFaces(fs_msg); break;
-    case 2: thisProxy(thisIndex.x, thisIndex.y-1, thisIndex.z).RecvSlabFaces(fs_msg); break;
-    case 3: thisProxy(thisIndex.x, thisIndex.y, thisIndex.z-1).RecvSlabFaces(fs_msg); break;
+    case 1: thisProxy(thisIndex.x-1, thisIndex.y, thisIndex.z).RecvSlabFaces(ids_msg); break;
+    case 2: thisProxy(thisIndex.x, thisIndex.y-1, thisIndex.z).RecvSlabFaces(ids_msg); break;
+    case 3: thisProxy(thisIndex.x, thisIndex.y, thisIndex.z-1).RecvSlabFaces(ids_msg); break;
   }
 
  
   delete msg;  
-  plains[b_idx] = NULL;
+  plains[b_idx].resize(0);
 }
 
 void BoundSlabs::FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * adjfs_msg){
   short b_idx = 2*(sb_msg ->dim-1) + (sb_msg->topPlain ? 1 : 0);
   // Update ids in fs_msg
   UpdateSlabIDs(b_idx); 
-  BndFacesMsg * fs_msg = plains[b_idx];
   
-  if (fs_msg -> no != adjfs_msg -> no)
+  if (plains[b_idx].size() != adjfs_msg -> no)
     printf("Serious Problems\n");
 
-  int msg_sz = 2 * (fs_msg -> no) + 1; 
+  int msg_sz = 2 * (adjfs_msg -> no) + 1; 
   long long * adj_slabs_msg = new long long [msg_sz];
-  adj_slabs_msg[0] = fs_msg -> no; 
-  //Find adjacent slabs , iterate over fs_msg and adjfis_msg
-  AdjSlabs(fs_msg -> no, fs_msg, adjfs_msg, adj_slabs_msg+1);
+  adj_slabs_msg[0] = adjfs_msg -> no; 
+  //Find adjacent slabs , iterate over fs_msg and adjfis_msg  
+  long long * adj_msg_it = adj_slabs_msg + 1; 
+  for (long long i = 0; i < plains[b_idx].size(); i++){
+    *adj_msg_it++ = plains[b_idx][i];
+    *adj_msg_it++ = *(adjfs_msg -> ids + i);
+  } 
+
   
   CkSectionInfo cookie; 
   CkGetSectionInfo(cookie, sb_msg);
@@ -165,42 +188,16 @@ void BoundSlabs::FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * adjfs_msg){
   
   delete sb_msg; 
   delete adjfs_msg;  
-  delete fs_msg;   // TODO :check  correctness
-  plains [b_idx] = NULL;  
+  plains[b_idx].resize(0); 
   delete adj_slabs_msg;
 }
 
-void BoundSlabs :: AdjSlabs(long long facetsNr, BndFacesMsg * set1, BndFacesMsg * set2, long long * adj_msg){
-  // Copy both messages into two vectors,
-  // Sort each vector independently
-  // Fill in adj_msg using corresponding slab ids from the two vecotrs 
-  std::vector<std::pair<std::vector<double>, long long>> set1_vec(facetsNr, std::pair<std::vector<double>, long long>(std::vector<double>(M_geom), 0)); 
-  std::vector<std::pair<std::vector<double>, long long>> set2_vec(facetsNr, std::pair<std::vector<double>, long long>(std::vector<double>(M_geom), 0));  
-   
-  long long * ip1 = set1 -> ids;
-  double * fp1 = set1 -> cntrs; 
-  long long * ip2 = set2 -> ids; 
-  double * fp2 = set2 -> cntrs;
-  for (long long i = 0; i < facetsNr; i++ ){
-    for (short j = 0; j < M_geom; j++){
-      set1_vec[i].first[j] = *fp1++;
-      set2_vec[i].first[j] = *fp2++;
-    } 
-    set1_vec[i].second = *ip1++;
-    set2_vec[i].second = *ip2++;
-  }
- 
-  std::sort(set1_vec.begin(), set1_vec.end() , FacetOrder);
-  std::sort(set2_vec.begin(), set2_vec.end() , FacetOrder);
-
-  long long * adj_msg_it = adj_msg; 
-  for (long long i = 0; i < facetsNr; i++){
-    *adj_msg_it++ = set1_vec[i].second;
-    *adj_msg_it++ = set2_vec[i].second;
-  }
-}
 
 void BoundSlabs :: UpdSlabIDs(UpdIDsMsg * msg){
+
+
+  CkPrintf("BSArray (%i, %i, %i) updated slab ids\n ", thisIndex.x, thisIndex.y, thisIndex.z);
+
   CkSectionInfo upd_cookie;
   CkGetSectionInfo(upd_cookie, msg);
   CkMulticastMgr * mCastGrp = CProxy_CkMulticastMgr(mCastGrpId).ckLocalBranch();
@@ -240,17 +237,16 @@ bool BoundSlabs :: ExpectGetBound(){
 
 short BoundSlabs::FindBorder(double * point){
   for (int i = 0; i < M_geom; i++){
-    if ( fabs( point[i] - ranges[i][0] )  <   1.0e-7 ){
+    if ( fabs( point[i] - ranges[i].first)  <   1.0e-7 ){
       // point lays on the lower plane perpendicular to i-th dimension 
       return 2*i; 
     }
-    if ( fabs ( point[i] - ranges[i][1]) < 1.0e-7 /*FP_EPSILON*/){
+    if ( fabs ( point[i] - ranges[i].second) < 1.0e-7 /*FP_EPSILON*/){
       // point lays on the higher plane perpendicular to i-th dimension 
       return (2*i+1); 
     }
   }
   return -1; 
 }
- 
 
 #include "BoundSlabs.def.h"
