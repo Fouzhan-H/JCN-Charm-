@@ -37,7 +37,7 @@ public:
 class UpdIDsMsg : public CkMcastBaseMsg, public CMessage_UpdIDsMsg {
 public:
   UpdIDsMsg(CkCallback  cb)
-    : CkMcastBaseMsg(), CMessage_UpdIDsMsg(), cb(cb){}; 
+    : cb(cb){}; 
   long long * ids; //TODO IDType
   CkCallback  cb; //TODO: better way to handle this? 
 };
@@ -45,7 +45,7 @@ public:
 class TargetBndMsg : public CkMcastBaseMsg, public CMessage_TargetBndMsg {
 public:
   TargetBndMsg(short d, bool tp)
-    : CkMcastBaseMsg(), CMessage_TargetBndMsg(), dim(d), topPlain(tp){};
+    : dim(d), topPlain(tp){};
   short dim; 
   bool topPlain;
 };
@@ -53,7 +53,7 @@ public:
 class SndBndMsg : public CkMcastBaseMsg, public CMessage_SndBndMsg {
 public:
   SndBndMsg(short d, bool tp, CkCallback cb)
-    : CkMcastBaseMsg(), CMessage_SndBndMsg(), dim(d), topPlain(tp), cb(cb){};
+    : dim(d), topPlain(tp), cb(cb){};
   short dim; 
   bool topPlain;
   CkCallback cb; //TODO: better way to handle this? 

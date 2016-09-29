@@ -30,10 +30,6 @@ JointContourNet :: ~JointContourNet(){
 }
 
 void JointContourNet::pup(PUP::er &p){
-  CkPrintf("JCN (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
-  if (p.isPacking()) CkPrintf("JCN (%i, %i, %i) packing slab_nr: %i  edge_nr: %i \n", thisIndex.x, thisIndex.y, thisIndex.z, slabs->size(), edges->size());
-  if (p.isUnpacking()) CkPrintf("JCN (%i, %i, %i) unpacking slab_nr: %i  edge_nr: %i \n", thisIndex.x, thisIndex.y, thisIndex.z, slabs->size(), edges->size());
-
   CBase_JointContourNet::pup(p);
   __sdag_pup(p);
 
@@ -67,8 +63,6 @@ void JointContourNet::pup(PUP::er &p){
     p| *edges; 
   }else 
      edges = NULL; 
-
-  CkPrintf("JCN end (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
 }
 
 void JointContourNet::Start(CkCallback & cb){
@@ -94,8 +88,8 @@ void JointContourNet::Start(CkCallback & cb){
 
   cmpJCN.compJCN(bndSlabNr, slabNr); 
  
-  slabs = new std::vector<std::vector<double>> (slabNr, std::vector<double>(Range_Dim)); //TODO std::unique_ptr<std::vector<std::vector<double>>> (new std::vector<std::vector<double>>(slabNr, std::vector<double>(Range_Dim)));
-  edges = new std::set<std::pair<long long, long long>>(); // TODO std::unique_ptr<std::set<std::pair<long long, long long>>> (new std::set<std::pair<long long, long long>>());
+  slabs = new std::vector<std::vector<double>> (slabNr, std::vector<double>(Range_Dim));
+  edges = new std::set<std::pair<long long, long long>>();
   //create populate message 
   CkCallback mrg_cb(CkIndex_JointContourNet::RunMergeStep()
                    , CkArrayIndex3D(thisIndex.x, thisIndex.y, thisIndex.z), thisProxy);
@@ -106,7 +100,6 @@ void JointContourNet::Start(CkCallback & cb){
   }
   cmpJCN.extractJCN(*slabs, *edges, msg->facetCntrs, msg->slabIDs); 
 
-  // TODO JCNtoFile("comp-" + std::to_string(thisIndex.x) + "-" + std::to_string(thisIndex.z)+ "jcn.vtk");
 
   //TODO Populate the coressponding BoundSlab Array element   
   BoundSlabs * bslocal = BSArray(thisIndex.x, thisIndex.y, thisIndex.z).ckLocal();
@@ -183,8 +176,6 @@ void JointContourNet :: RunMergeStep(){
     uplain_proxy.GetAdjacentSlabs(up_msg);
     lplain_proxy.SndBndFaces(lp_msg);
     thisProxy(thisIndex.x, thisIndex.y, thisIndex.z).Merger(itr_idx);  
-    
-    CkPrintf("RunMerger-Receiver (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
 
   }else {
      if (lvl_id == (k >> 1)){        
@@ -216,8 +207,6 @@ void JointContourNet :: RunMergeStep(){
        slabs = NULL; 
        delete edges; 
        edges = NULL; 
-       CkPrintf("RunMerger-sender (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
-
 //       thisProxy(thisIndex).ckDestroy();
     }
   }
@@ -342,15 +331,11 @@ void JointContourNet :: UpdateBorders(int set1_Nr, long long * set1_ids, int set
     CkSetRefNum(up_msg2, itr_idx);
     sec2_proxy.UpdateSlabIDs(up_msg2);                     // Multicast/reduction call
   }
-  
-  CkPrintf("Update Msg sent (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
 }
 
 void JointContourNet :: ComputeJCN(){}
  
 void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
-  
-  CkPrintf("Merger start (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
   
   std::vector<std::vector<double>> * slabs_gr1 = slabs;
   std::set<std::pair<long long, long long>> * edges_gr1 = edges;
@@ -382,8 +367,6 @@ void JointContourNet :: MergeJCNs(JCNGrMsg * rcvdGr, CkReductionMsg * adjSlabs){
   delete edges_gr1; 
   delete rcvdGr; 
   delete adjSlabs;
-  CkPrintf("Merger ends (%i, %i, %i) \n", thisIndex.x, thisIndex.y, thisIndex.z); 
-
 }
 
 void JointContourNet::JCNtoFile(std::string fname){

@@ -57,7 +57,6 @@ BoundSlabs :: BoundSlabs(CkMigrateMessage * msg){
 }
 
 void BoundSlabs::pup(PUP::er &p){
-  CkPrintf("BSArray start (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
   CBase_BoundSlabs::pup(p);
   __sdag_pup(p); 
   
@@ -77,7 +76,6 @@ void BoundSlabs::pup(PUP::er &p){
     PUParray(p, slab_ids, slab_nr); 
   }else 
      slab_ids = NULL;
-  CkPrintf("BSArray (%i, %i, %i) %i %i %i \n", thisIndex.x, thisIndex.y, thisIndex.z, p.isSizing(), p.isPacking(), p.isUnpacking());
 } 
 
 BoundSlabs::~BoundSlabs(){
@@ -194,9 +192,6 @@ void BoundSlabs::FindAdjSlabs(SndBndMsg * sb_msg, BndFacesMsg * adjfs_msg){
 
 
 void BoundSlabs :: UpdSlabIDs(UpdIDsMsg * msg){
-
-
-  CkPrintf("BSArray (%i, %i, %i) updated slab ids\n ", thisIndex.x, thisIndex.y, thisIndex.z);
 
   CkSectionInfo upd_cookie;
   CkGetSectionInfo(upd_cookie, msg);
