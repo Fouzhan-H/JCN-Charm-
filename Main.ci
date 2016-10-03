@@ -15,10 +15,11 @@ mainmodule Main{
  readonly char fns [10][100]; 
  readonly CkGroupID mCastGrpId; 
  readonly CProxy_BoundSlabs BSArray; 
+ readonly double startTime; 
 
   mainchare Main{
     entry Main(CkArgMsg* msg); 
-    entry void Done(); 
+//    entry void Done(); 
   }
 
 }

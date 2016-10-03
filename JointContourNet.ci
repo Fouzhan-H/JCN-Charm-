@@ -10,7 +10,7 @@ module JointContourNet {
 
   array [3D] JointContourNet {
     entry JointContourNet();  
-    entry void Start(CkCallback & cb);
+    entry void Start();
     entry void RunMergeStep(); 
     
     entry void Merger(int n){ 

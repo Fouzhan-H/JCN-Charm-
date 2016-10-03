@@ -101,7 +101,7 @@ void BoundSlabs :: Populate(BSPopulateMsg * msg){
   for (long long i = 0; i < facetNr; i++, p += M_geom){ 
     plainIdx = FindBorder(p);
     if (plainIdx == -1) {
-      CkPrintf("BArray (%i, %i, %i),  Nr %d of facetNr: %d Plain was not found %f %f %f slabID: %d \n", thisIndex.x, thisIndex.y, thisIndex.z, i, facetNr,  *p, *(p+1), *(p+2), msg -> slabIDs[i]);
+      CkPrintf("BArray (%i, %i, %i), Nr %d of facetNr: %d Plain was not found %f %f %f slabID: %d \n", thisIndex.x, thisIndex.y, thisIndex.z, i, facetNr,  *p, *(p+1), *(p+2), msg -> slabIDs[i]);
       CkExit();
     }
     for (short j =0; j < M_geom; j++) 

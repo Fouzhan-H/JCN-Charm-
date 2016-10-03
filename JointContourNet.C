@@ -7,22 +7,19 @@
 
 #include <fstream>
 
-JointContourNet :: JointContourNet(): finish_cb(NULL), slabs(NULL), edges(NULL){
+JointContourNet :: JointContourNet(): slabs(NULL), edges(NULL){
   fin_dim = (Ydiv == 1 && Zdiv == 1) ? true: false; 
   itr_idx = 0;  
   red_dim =1 ; red_idx = 0; 
-  NextMergerStep(); 
+  NextMergerStep();
 }
  
 JointContourNet :: JointContourNet(CkMigrateMessage * msg){
-  finish_cb = NULL; 
   slabs = NULL;
   edges = NULL; 
 }
 
 JointContourNet :: ~JointContourNet(){
-  if (finish_cb != NULL)
-    delete finish_cb;
   if (slabs != NULL)
     delete slabs; 
   if (edges != NULL)
@@ -39,14 +36,6 @@ void JointContourNet::pup(PUP::er &p){
   p| fin_dim; 
   p| upd_sec1;
   p| upd_sec2;
-  //PUP data member finish_cb of type CkCallback* 
-  int has_f_cb = (finish_cb != NULL);
-  p| has_f_cb; 
-  if (has_f_cb){
-    if (p.isUnpacking()) finish_cb = new CkCallback();
-    p | *finish_cb; 
-  }else 
-     finish_cb = NULL; 
   //PUP data member slabs; 
   int has_slabs = (slabs != NULL);
   p| has_slabs; 
@@ -65,9 +54,10 @@ void JointContourNet::pup(PUP::er &p){
      edges = NULL; 
 }
 
-void JointContourNet::Start(CkCallback & cb){
+void JointContourNet::Start(){
+//void JointContourNet::Start(CkCallback & cb){
   // Compute the corressponding data index 
-  finish_cb = new CkCallback (cb); 
+//  finish_cb = new CkCallback (cb); 
   int st_x, dim_x, st_y, dim_y, st_z, dim_z; 
 
   datasetIndex(XDim, Xdiv, thisIndex.x, st_x, dim_x); 
@@ -239,8 +229,10 @@ void JointContourNet:: NextMergerStep(){
     // write out final JCN in a file
     CkPrintf("Slab Nr: %i Edge Nr: %i \n", slabs -> size(), edges -> size());
     JCNtoFile("jcn.vtk");
-    finish_cb->send(); 
     // Main_Proxy.done();      
+    double endTime = CkWallTimer();
+    CkPrintf("all done in %f seconds.\n", endTime - startTime);
+    CkExit();
   }
 }
 

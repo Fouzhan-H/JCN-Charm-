@@ -7,7 +7,7 @@
 #include <math.h>
 
 // Tolerance used when comparing components of points.
-#define COM_EPSILON 1.0e-12
+#define COM_EPSILON 1.0e-20
 
 // ------------------------------------------------------------------
 

@@ -17,16 +17,16 @@ int Ydiv;
 int Zdiv;
 CkGroupID mCastGrpId; 
 CProxy_BoundSlabs BSArray; 
-CProxy_JointContourNet JCNArray; 
+double startTime; 
 
 class Main : public CBase_Main {
 public:
   Main(CkArgMsg *msg);
   Main(CkMigrateMessage *msg);
-  void Done(); // TODO: receive the final JCN
+//  void Done(); // TODO: receive the final JCN
 private:
   void GetParams (CkArgMsg * msg); 
-  double startTime; 
+//  double startTime; 
 };
 
 #endif

@@ -15,7 +15,7 @@ extern double sws [];
 extern double bss [];
 extern CProxy_BoundSlabs BSArray; 
 extern CkGroupID mCastGrpId;
-
+extern double startTime;
 
 class JCNGrMsg : public CMessage_JCNGrMsg{
 public:
@@ -33,7 +33,7 @@ public:
   virtual ~JointContourNet();
   JointContourNet(CkMigrateMessage * msg);
   virtual void pup(PUP::er &p);
-  void Start(CkCallback & cb);    
+  void Start();    
   void RunMergeStep();  
 private:
   JointContourNet_SDAG_CODE
@@ -50,7 +50,6 @@ private:
   bool fin_dim; 
   bool upd_sec1; 
   bool upd_sec2;
-  CkCallback * finish_cb; 
   // local copy of a jcn graph includes 
   //   * a list of the center coordination (in the domain) of all slabs, and
   //   * a set of slab id pairs representing adjacent slabs

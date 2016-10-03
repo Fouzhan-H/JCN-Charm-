@@ -17,22 +17,21 @@ Main :: Main(CkArgMsg * msg){
   CkArrayOptions opts(Xdiv, Ydiv, Zdiv); 
   opts.bindTo(JCNArray); 
   BSArray = CProxy_BoundSlabs::ckNew(3, opts);
+  JCNArray.Start(); 
 
-  
-  CkCallback cb (CkIndex_Main::Done(),thisProxy);   
-  JCNArray.Start(cb); 
-//   * JCN computer/merger --> call RunMergeStep 
-//   * gcngraph (Messages | PUP method)
 
-//  CkCallback cb (CkIndex_Main::Done(),thisProxy);   
-//  CkStartQD(cb);
+
+/*  CkArrayOptions opts(Xdiv, Ydiv, Zdiv); 
+  BSArray = CProxy_BoundSlabs::ckNew(3, opts);
+  CProxy_JointContourNet JCNArray = CProxy_JointContourNet::ckNew( Xdiv, Ydiv, Zdiv);
+  JCNArray.Start(); */
 }
 
-void Main :: Done(){
+/*void Main :: Done(){
   double endTime = CkWallTimer();
   CkPrintf("all done in %f seconds.\n", endTime - startTime);
   CkExit();
-}
+}*/
 
 // Read Program Arguments: 
 //   * Dataset dimension 
