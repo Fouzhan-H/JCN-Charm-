@@ -8,7 +8,7 @@ BINARY=JCN
 all: $(BINARY)
 
 JCN_Proj: BSlab.o JCN.o Main.o  
-	$(CHARMC) -o $@ Main.o JCN.o BSlab.o RectGData.o CompJCN.o MrgJCN.o PtopeGeom.o PyramidTree.o -module CkMulticast -module CommonLBs -balance rand -tracemode projections $(OPTS)
+	$(CHARMC) -o $@ Main.o JCN.o BSlab.o RectGData.o CompJCN.o MrgJCN.o PtopeGeom.o PyramidTree.o -module CkMulticast -module CommonLBs -balance rand -tracemode projections -tracemode summary $(OPTS)
 
 $(BINARY): RectGData.o BSlab.o JCN.o Main.o 
 	$(CHARMC) -o $@ Main.o JCN.o BSlab.o RectGData.o CompJCN.o MrgJCN.o PtopeGeom.o PyramidTree.o -module CkMulticast -module CommonLBs -balance rand $(OPTS)

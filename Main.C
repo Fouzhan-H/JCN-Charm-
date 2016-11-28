@@ -13,10 +13,13 @@ Main :: Main(CkArgMsg * msg){
   
   mCastGrpId = CProxy_CkMulticastMgr::ckNew();
   // Create JCN and BoundSlab Arrays
-  CProxy_JointContourNet JCNArray = CProxy_JointContourNet::ckNew( Xdiv, Ydiv, Zdiv);
   CkArrayOptions opts(Xdiv, Ydiv, Zdiv); 
-  opts.bindTo(JCNArray); 
-  BSArray = CProxy_BoundSlabs::ckNew(3, opts);
+  CProxy_RRMap myMap = CProxy_RRMap::ckNew(); 
+  opts.setMap(myMap);
+  CProxy_JointContourNet JCNArray = CProxy_JointContourNet::ckNew(opts);
+  CkArrayOptions bs_opts(Xdiv, Ydiv, Zdiv); 
+  bs_opts.bindTo(JCNArray); 
+  BSArray = CProxy_BoundSlabs::ckNew(3, bs_opts);
   JCNArray.Start(); 
 
 
