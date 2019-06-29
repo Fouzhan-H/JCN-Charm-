@@ -1,0 +1,12 @@
+----------- Compiling the code
+use the makefile 
+it will generates a binary file
+
+----------- Parameter for runnign the computation 
+
+-d "dataset dimension"
+-rd "range dimension"
+-sw "list of slab-width values"  (it must be provided after -rd)
+-bs "list of base values cutting the range values"      (if not provides, Slabs are computed with base 0)
+-f  "list of input file names" (it must be provided after -rd)
+-div "number of subdivisions for each dimension"  (if not provided, the computation does not use parallelism)
